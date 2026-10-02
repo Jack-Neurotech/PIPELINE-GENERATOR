@@ -21,150 +21,87 @@ from analysis import analyze
 # NEURAL DATA
 # ============================================================
 #
-# Each neural-data type contains the file types associated
-# with that type of data.
+# These are the neural-data types currently supported by the
+# project resources.
+#
+# File-type options are intentionally limited to formats for
+# which we have an actual ingestion path or a concrete,
+# project-supported representation.
 # ============================================================
 
 NEURAL_DATA = {
 
     "EEG": [
-        "EDF",
-        "BDF",
-        "FIF",
         "EEGLAB (.set)",
         "CSV"
     ],
 
-    "ECoG": [
-        "EDF",
-        "BDF",
-        "FIF",
-        "MAT",
-        "NWB"
+    "IONM": [
+        "CSV"
     ],
 
     "Intracortical / Extracellular": [
-        "NWB",
-        "MAT",
-        "HDF5",
         "CSV"
-    ],
-
-    "Intracellular": [
-        "ABF",
-        "MAT",
-        "NWB",
-        "CSV"
-    ],
-
-    "MEG": [
-        "FIF",
-        "CTF",
-        "KIT",
-        "BTi"
-    ],
-
-    "fMRI": [
-        "NIfTI",
-        "NIfTI.gz",
-        "DICOM"
-    ],
-
-    "Structural MRI": [
-        "DICOM",
-        "NIfTI",
-        "NIfTI.gz"
-    ],
-
-    "DTI / Diffusion MRI": [
-        "NIfTI",
-        "DICOM",
-        "BVAL",
-        "BVEC"
-    ],
-
-    "PET": [
-        "DICOM",
-        "NIfTI",
-        "NIfTI.gz"
-    ],
-
-    "fNIRS": [
-        "SNIRF",
-        "CSV",
-        "MAT"
-    ],
-
-    "IONM": [
-        "Supported IONM formats"
-    ],
-
-    "EMG": [
-        "EDF",
-        "BDF",
-        "CSV",
-        "MAT"
-    ],
-
-    "EOG": [
-        "EDF",
-        "BDF",
-        "FIF",
-        "CSV"
-    ],
-
-    "Single-Unit Recordings": [
-        "NWB",
-        "MAT",
-        "HDF5",
-        "CSV"
-    ],
-
-    "Multi-Unit Recordings": [
-        "NWB",
-        "MAT",
-        "HDF5",
-        "CSV"
-    ],
-
-    "Local Field Potentials (LFP)": [
-        "NWB",
-        "EDF",
-        "BDF",
-        "MAT",
-        "CSV"
-    ],
-
-    "Calcium Imaging": [
-        "TIFF",
-        "OME-TIFF",
-        "HDF5",
-        "NWB"
-    ],
-
-    "Voltage Imaging": [
-        "TIFF",
-        "OME-TIFF",
-        "HDF5",
-        "NWB"
-    ],
-
-    "Optogenetic Recordings": [
-        "NWB",
-        "HDF5",
-        "MAT",
-        "CSV"
-    ],
-
-    "Neural + Behavioral Data": [
-        "NWB",
-        "HDF5",
-        "MAT",
-        "CSV",
-        "JSON"
     ]
 }
 
+
+# ============================================================
+# PIPELINE TYPES
+# ============================================================
+
+PIPELINES = {
+
+    "Signal Processing Pipeline": [
+        "EEG",
+        "IONM",
+        "Intracortical / Extracellular"
+    ],
+
+    "EEG Analysis Pipeline": [
+        "EEG"
+    ],
+
+    "IONM Pipeline": [
+        "IONM",
+        "EEG"
+    ],
+
+    "Intracortical Analysis Pipeline": [
+        "Intracortical / Extracellular"
+    ],
+
+    "Spike Analysis Pipeline": [
+        "Intracortical / Extracellular"
+    ],
+
+    "Time-Series Analysis Pipeline": [
+        "EEG",
+        "IONM",
+        "Intracortical / Extracellular"
+    ],
+
+    "Statistical Analysis Pipeline": [
+        "EEG",
+        "IONM",
+        "Intracortical / Extracellular"
+    ],
+
+    "Neural Decoding Pipeline": [
+        "Intracortical / Extracellular",
+        "EEG"
+    ],
+
+    "Neural Population Analysis Pipeline": [
+        "Intracortical / Extracellular"
+    ],
+
+    "Custom Pipeline": [
+        "EEG",
+        "IONM",
+        "Intracortical / Extracellular"
+    ]
+}
 
 # ============================================================
 # PIPELINE TYPES
