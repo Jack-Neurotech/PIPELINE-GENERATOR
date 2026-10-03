@@ -17,9 +17,52 @@
 # 5. Select the necessary analysis components
 # 6. Construct instructions for the pipeline generator
 #
-# For now, this file contains only the entry point.
+# IMPORTANT
+# ------------------------------------------------------------
+# analysis.py does NOT generate analysis code from scratch.
+#
+# It will eventually compile existing components from the
+# Master-DOC's library according to the parameters received
+# from Ingestion.py.
 # ============================================================
 
+
+# ============================================================
+# IMPORTS
+# ============================================================
+
+from pathlib import Path
+
+
+# ============================================================
+# MASTER-DOC DIRECTORY
+# ============================================================
+#
+# Locate the Master-DOC's folder relative to this file.
+#
+# analysis.py
+#     │
+#     └── Master-DOC's/
+#
+# Using Path(__file__) means this does not depend on the
+# user's specific computer or absolute file path.
+# ============================================================
+
+MASTER_DOC_DIRECTORY = (
+    Path(__file__).resolve().parent /
+    "Master-DOC's"
+)
+
+
+# ============================================================
+# ANALYSIS ENTRY POINT
+# ============================================================
+#
+# Ingestion.py sends the completed parameter object here.
+#
+# The parameter object will eventually be used together with
+# the Master-DOC resources to compile the requested pipeline.
+# ============================================================
 
 def analyze(parameters):
 
@@ -44,3 +87,4 @@ def analyze(parameters):
     # --------------------------------------------------------
 
     pass
+
