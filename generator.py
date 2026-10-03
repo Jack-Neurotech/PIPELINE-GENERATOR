@@ -1,3 +1,4 @@
+```python
 # ============================================================
 # PIPELINE GENERATOR
 # ============================================================
@@ -9,8 +10,19 @@
 #
 # generator.py receives that specification.
 #
-# At this stage, generator.py does NOT yet retrieve or
-# assemble Master-DOC code.
+# CURRENT STAGE:
+#
+#     The Generator ONLY receives the object.
+#
+# It does NOT yet:
+#
+#     - retrieve Master-DOC code
+#     - assemble code
+#     - construct the pipeline
+#     - write files
+#
+# Those operations will be added after the handoff has
+# been verified.
 # ============================================================
 
 
@@ -33,7 +45,6 @@ def generate(generation_specification):
     -------
     object
         The received generation specification.
-
     """
 
     if generation_specification is None:
@@ -42,11 +53,47 @@ def generate(generation_specification):
             "Generator received no generation specification."
         )
 
+    # --------------------------------------------------------
+    # HANDOFF CONFIRMATION
+    # --------------------------------------------------------
+    #
+    # This confirms that analysis.py successfully passed
+    # the generation specification into the Generator.
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 60)
+    print("PIPELINE GENERATOR")
+    print("=" * 60)
+
+    print(
+        "GENERATION SPECIFICATION RECEIVED"
+    )
+
+    print(
+        "Generator successfully received the object "
+        "from analysis.py."
+    )
+
+    print("=" * 60)
+
     return generation_specification
 
 
 # ============================================================
 # DIRECT TEST
+# ============================================================
+#
+# Running:
+#
+#     python generator.py
+#
+# directly tests that generator.py itself is executable.
+#
+# The actual production handoff occurs when analysis.py calls:
+#
+#     generate(generation_specification)
+#
 # ============================================================
 
 if __name__ == "__main__":
@@ -61,3 +108,4 @@ if __name__ == "__main__":
     )
 
     print("=" * 60)
+```
