@@ -1,3 +1,4 @@
+
 # ============================================================
 # NEURAL ANALYSIS / PIPELINE COMPILATION SYSTEM
 # ============================================================
@@ -166,18 +167,29 @@ def normalize_document_name(
     )
 
 
+
 # ============================================================
 # DISCOVER MASTER-DOC FILES
 # ============================================================
 #
-# Every file in Master-DOC's is considered a potential
-# executable Python resource.
+# Discover executable Master-DOC Python files.
 #
-# We intentionally do NOT hard-code a list of only 5 or 8
-# Master-DOCs.
+# IMPORTANT:
 #
-# This means newly added Master-DOCs are automatically
-# discovered.
+# Master-DOC's may contain supporting files such as:
+#
+#     requirements.txt
+#     README files
+#     documentation
+#     configuration files
+#
+# These are NOT executable Python modules.
+#
+# Only .py files are eligible for execution.
+#
+# This allows analysis.py to dynamically discover every
+# executable Master-DOC without attempting to execute
+# dependency manifests or documentation as Python.
 # ============================================================
 
 def discover_master_docs():
@@ -202,11 +214,12 @@ def discover_master_docs():
             for path in MASTER_DOC_DIRECTORY.iterdir()
             if path.is_file()
             and not path.name.startswith(".")
-            and path.suffix.lower() != ".pyc"
+            and path.suffix.lower() == ".py"
             and "__pycache__" not in path.parts
         ),
         key=lambda path: path.name.lower()
     )
+
 
 
 # ============================================================
