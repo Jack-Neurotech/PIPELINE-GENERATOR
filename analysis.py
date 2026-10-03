@@ -3,37 +3,35 @@
 # NEURAL ANALYSIS / PIPELINE COMPILATION SYSTEM
 # ============================================================
 #
-# analysis.py is the orchestration and compilation layer of
-# the Neural Analysis Pipeline Generator.
-#
-# INGESTION.py
-#       |
-#       v
-# parameter object
-#       |
-#       v
 # analysis.py
-#       |
-#       +----> Master-DOC library
-#       |
-#       +----> Generator Master-DOC
-#       |
-#       +----> Validation Master-DOC
-#       |
-#       v
-# validated generation specification
-#       |
-#       v
-# future source-code generator
+#
+# RESPONSIBILITY:
+#
+#     1. Receive the parameter object from ingestion.py.
+#     2. Discover the Master-DOC library.
+#     3. Load the Master-DOC Python resources.
+#     4. Identify their logical roles.
+#     5. Match the requested parameters to Master-DOC resources.
+#     6. Build a generation specification.
+#     7. Hand that specification to generator.py.
 #
 # IMPORTANT:
 #
-# analysis.py does NOT invent scientific algorithms.
+# analysis.py does NOT generate the final source code.
 #
-# The scientific methods, compatibility rules, pipeline stages,
-# and generator rules come from the Master-DOC library.
+# generator.py will eventually:
 #
-# analysis.py coordinates those resources.
+#     generation specification
+#             |
+#             v
+#     Master-DOC resource selection
+#             |
+#             v
+#     source-code compilation
+#             |
+#             v
+#     generated pipeline
+#
 # ============================================================
 
 
@@ -51,30 +49,6 @@ from typing import Any
 # ============================================================
 # MASTER-DOC DIRECTORY
 # ============================================================
-#
-# The Master-DOC library lives beside analysis.py:
-#
-# PIPELINE-GENERATOR/
-#
-#     analysis.py
-#
-#     Master-DOC's/
-#         Master-DOC-Ingestion.py
-#         Master-DOC-Preprocessing.py
-#         Master-DOC-Stats.py
-#         Master-DOC-Decoding.py
-#         Master-DOC-Visualization.py
-#         Master-DOC-Validation.py
-#         Master-DOC-Pipeline.py
-#         Master-DOC-Output.py
-#         Master-DOC-Connectivity.py
-#         Master-DOC-Generator.py
-#         Master-DOC-Signal_Analysis.py
-#
-# The directory is discovered relative to this file so that
-# the program does not depend on the user's current terminal
-# location.
-# ============================================================
 
 MASTER_DOC_DIRECTORY = (
     Path(__file__).resolve().parent /
@@ -84,14 +58,6 @@ MASTER_DOC_DIRECTORY = (
 
 # ============================================================
 # MASTER-DOC IDENTIFIERS
-# ============================================================
-#
-# These are the logical roles used by the compiler.
-#
-# The physical filenames are discovered dynamically.
-#
-# This prevents analysis.py from depending on the exact
-# capitalization or punctuation of the filenames.
 # ============================================================
 
 MASTER_DOC_ROLE_PATTERNS = {
@@ -141,17 +107,12 @@ MASTER_DOC_ROLE_PATTERNS = {
 
     "generator": (
         "master-doc-generator",
-    )
-
+    ),
 }
 
 
 # ============================================================
 # NORMALIZE FILE NAME
-# ============================================================
-#
-# Converts a physical Master-DOC filename into a predictable
-# comparison form.
 # ============================================================
 
 def normalize_document_name(
@@ -167,29 +128,8 @@ def normalize_document_name(
     )
 
 
-
 # ============================================================
 # DISCOVER MASTER-DOC FILES
-# ============================================================
-#
-# Discover executable Master-DOC Python files.
-#
-# IMPORTANT:
-#
-# Master-DOC's may contain supporting files such as:
-#
-#     requirements.txt
-#     README files
-#     documentation
-#     configuration files
-#
-# These are NOT executable Python modules.
-#
-# Only .py files are eligible for execution.
-#
-# This allows analysis.py to dynamically discover every
-# executable Master-DOC without attempting to execute
-# dependency manifests or documentation as Python.
 # ============================================================
 
 def discover_master_docs():
@@ -212,24 +152,19 @@ def discover_master_docs():
         (
             path
             for path in MASTER_DOC_DIRECTORY.iterdir()
-            if path.is_file()
-            and not path.name.startswith(".")
-            and path.suffix.lower() == ".py"
-            and "__pycache__" not in path.parts
+            if (
+                path.is_file()
+                and not path.name.startswith(".")
+                and path.suffix.lower() == ".py"
+                and "__pycache__" not in path.parts
+            )
         ),
         key=lambda path: path.name.lower()
     )
 
 
-
 # ============================================================
 # LOAD ONE MASTER-DOC
-# ============================================================
-#
-# The Master-DOCs are executable Python source files.
-#
-# SourceFileLoader allows analysis.py to execute them even
-# when the physical filename contains hyphens.
 # ============================================================
 
 def load_master_doc(
@@ -273,22 +208,6 @@ def load_master_doc(
 # ============================================================
 # LOAD COMPLETE MASTER-DOC LIBRARY
 # ============================================================
-#
-# This is the central resource-loading operation.
-#
-# ALL discovered Master-DOCs are executed.
-#
-# A failed Master-DOC is recorded rather than silently
-# disappearing.
-#
-# The compiler can therefore distinguish:
-#
-#     loaded successfully
-#
-# from
-#
-#     discovered but failed
-# ============================================================
 
 def load_master_docs():
 
@@ -321,26 +240,12 @@ def load_master_docs():
     return {
         "discovered": document_paths,
         "loaded": loaded,
-        "errors": errors
+        "errors": errors,
     }
 
 
 # ============================================================
 # IDENTIFY MASTER-DOC ROLES
-# ============================================================
-#
-# The generator does not need to know the physical filename
-# of every document.
-#
-# It needs to know which loaded module performs which role.
-#
-# Example:
-#
-#     Master-DOC-Validation.py
-#
-# becomes:
-#
-#     validation
 # ============================================================
 
 def identify_master_doc_roles(
@@ -376,11 +281,9 @@ def identify_master_doc_roles(
                 ):
 
                     matched_role = role
-
                     break
 
             if matched_role is not None:
-
                 break
 
         if matched_role is not None:
@@ -397,18 +300,12 @@ def identify_master_doc_roles(
 
     return {
         "roles": roles,
-        "unmatched": unmatched
+        "unmatched": unmatched,
     }
 
 
 # ============================================================
-# FIND REQUIRED MASTER-DOC
-# ============================================================
-#
-# The Generator Master-DOC and Validation Master-DOC are
-# fundamental to compilation.
-#
-# We fail explicitly if either is unavailable.
+# REQUIRE MASTER-DOC ROLE
 # ============================================================
 
 def require_master_doc_role(
@@ -423,7 +320,7 @@ def require_master_doc_role(
     if module is None:
 
         raise RuntimeError(
-            f"Required Master-DOC role is unavailable: "
+            "Required Master-DOC role is unavailable: "
             f"{role}"
         )
 
@@ -431,48 +328,7 @@ def require_master_doc_role(
 
 
 # ============================================================
-# FIND FUNCTION
-# ============================================================
-#
-# Master-DOCs contain executable functions.
-#
-# This helper retrieves a required function from the correct
-# Master-DOC without duplicating its implementation.
-# ============================================================
-
-def require_function(
-    module: ModuleType,
-    function_name: str
-):
-
-    function = getattr(
-        module,
-        function_name,
-        None
-    )
-
-    if not callable(function):
-
-        raise AttributeError(
-            f"Master-DOC "
-            f"'{module.__name__}' does not expose "
-            f"required function '{function_name}'."
-        )
-
-    return function
-
-
-# ============================================================
 # VALIDATE MASTER-DOC LIBRARY
-# ============================================================
-#
-# Before compiling a user pipeline we verify that the critical
-# compiler resources actually exist.
-#
-# This is different from validating the user's requested
-# pipeline.
-#
-# This validates the COMPILER itself.
 # ============================================================
 
 def validate_master_doc_library(
@@ -500,7 +356,7 @@ def validate_master_doc_library(
         ):
 
             errors.append(
-                f"Master-DOC failed to execute: "
+                "Master-DOC failed to execute: "
                 f"{document_name} -> "
                 f"{type(error).__name__}: {error}"
             )
@@ -518,12 +374,17 @@ def validate_master_doc_library(
     )
 
     # --------------------------------------------------------
-    # REQUIRED COMPILER ROLES
+    # Validation is useful for reporting, but the Generator
+    # Master-DOC is NOT required to expose functions that
+    # analysis.py calls.
+    #
+    # Therefore we only require the Master-DOC resources
+    # themselves to exist.
     # --------------------------------------------------------
 
     required_roles = (
+        "validation",
         "generator",
-        "validation"
     )
 
     for role in required_roles:
@@ -531,7 +392,7 @@ def validate_master_doc_library(
         if role not in roles:
 
             errors.append(
-                f"Required Master-DOC role missing: "
+                "Required Master-DOC role missing: "
                 f"{role}"
             )
 
@@ -545,30 +406,12 @@ def validate_master_doc_library(
             roles_state[
                 "unmatched"
             ]
-        )
+        ),
     }
 
 
 # ============================================================
 # CONVERT PARAMETER OBJECT TO REQUEST DICTIONARY
-# ============================================================
-#
-# Ingestion.py supplies the parameter object.
-#
-# The Generator Master-DOC operates on a request dictionary.
-#
-# We therefore adapt the object without changing its contents.
-#
-# Supported input forms:
-#
-#     dictionary
-#
-#     dataclass/object with attributes
-#
-#     object exposing to_dict()
-#
-#     object exposing model_dump()
-#
 # ============================================================
 
 def parameter_object_to_request(
@@ -643,7 +486,6 @@ def parameter_object_to_request(
     ):
 
         if name.startswith("_"):
-
             continue
 
         try:
@@ -658,7 +500,6 @@ def parameter_object_to_request(
             continue
 
         if callable(value):
-
             continue
 
         attributes[
@@ -669,184 +510,416 @@ def parameter_object_to_request(
 
 
 # ============================================================
-# NORMALIZE REQUEST USING GENERATOR MASTER-DOC
+# NORMALIZE REQUEST
 # ============================================================
 #
-# The Generator Master-DOC already owns the request-normalizing
-# logic.
+# IMPORTANT:
 #
-# analysis.py therefore calls that function instead of
-# duplicating the rules.
+# This is intentionally local to analysis.py.
+#
+# We are NOT asking Master-DOC-Generator for a function named
+# normalize_request().
+#
+# The parameter object has already been converted into a
+# normal dictionary.
+#
+# This function simply establishes a predictable structure.
 # ============================================================
 
 def normalize_request(
-    request,
-    generator_module
+    request
 ):
 
-    function = require_function(
-        generator_module,
-        "normalize_request"
-    )
+    if request is None:
 
-    return function(
+        return {}
+
+    if not isinstance(
+        request,
+        dict
+    ):
+
+        raise TypeError(
+            "Normalized request must be a dictionary."
+        )
+
+    normalized = dict(
         request
     )
 
+    # --------------------------------------------------------
+    # Normalize common list-valued parameters.
+    # --------------------------------------------------------
+
+    list_fields = (
+        "preprocessing",
+        "statistics",
+        "features",
+    )
+
+    for field in list_fields:
+
+        value = normalized.get(
+            field
+        )
+
+        if value is None:
+
+            normalized[
+                field
+            ] = []
+
+        elif isinstance(
+            value,
+            str
+        ):
+
+            normalized[
+                field
+            ] = [value]
+
+        else:
+
+            normalized[
+                field
+            ] = list(value)
+
+    return normalized
+
 
 # ============================================================
-# RUN MASTER-DOC VALIDATION
+# FIND MASTER-DOC RESOURCE FOR REQUEST
 # ============================================================
 #
-# Validation is performed by Master-DOC-Validation.
+# analysis.py identifies which Master-DOC resources are
+# relevant to the request.
 #
-# The Generator Master-DOC itself also performs structural
-# validation, so both layers are preserved:
-#
-#     analysis
-#         |
-#         +--> Validation Master-DOC
-#         |
-#         +--> Generator Master-DOC
+# It does NOT copy their implementation code.
 # ============================================================
 
-def validate_request(
+def select_master_doc_resources(
     request,
-    validation_module
+    roles
 ):
 
-    validation_function = require_function(
-        validation_module,
-        "validate_pipeline_configuration"
+    selected = {}
+
+    # --------------------------------------------------------
+    # Core resources
+    # --------------------------------------------------------
+
+    for role in (
+        "ingestion",
+        "preprocessing",
+        "statistics",
+        "decoding",
+        "visualization",
+        "validation",
+        "pipeline",
+        "output",
+        "connectivity",
+        "signal_analysis",
+    ):
+
+        if role in roles:
+
+            selected[
+                role
+            ] = roles[
+                role
+            ].__name__
+
+    # --------------------------------------------------------
+    # Generator is part of the compilation architecture.
+    # --------------------------------------------------------
+
+    if "generator" in roles:
+
+        selected[
+            "generator"
+        ] = roles[
+            "generator"
+        ].__name__
+
+    return selected
+
+
+# ============================================================
+# BUILD COMPONENT REQUEST
+# ============================================================
+#
+# This object describes WHAT the Generator needs.
+#
+# It does not contain the final generated source code.
+# ============================================================
+
+def build_component_request(
+    request
+):
+
+    components = {}
+
+    # --------------------------------------------------------
+    # Neural data
+    # --------------------------------------------------------
+
+    components[
+        "neural_data"
+    ] = request.get(
+        "neural_data"
     )
 
-    return validation_function(
-        neural_data=request.get(
-            "neural_data"
-        ),
+    # --------------------------------------------------------
+    # File format
+    # --------------------------------------------------------
 
-        file_type=request.get(
-            "file_type"
-        ),
-
-        pipeline_type=request.get(
-            "pipeline_type"
-        ),
-
-        preprocessing=request.get(
-            "preprocessing"
-        ),
-
-        statistics=request.get(
-            "statistics"
-        ),
-
-        features=request.get(
-            "features"
-        ),
-
-        decoder=request.get(
-            "decoder"
-        ),
-
-        target_type=request.get(
-            "target_type"
-        )
+    components[
+        "file_type"
+    ] = request.get(
+        "file_type"
     )
+
+    # --------------------------------------------------------
+    # Pipeline type
+    # --------------------------------------------------------
+
+    components[
+        "pipeline_type"
+    ] = request.get(
+        "pipeline_type"
+    )
+
+    # --------------------------------------------------------
+    # Preprocessing
+    # --------------------------------------------------------
+
+    components[
+        "preprocessing"
+    ] = request.get(
+        "preprocessing",
+        []
+    )
+
+    # --------------------------------------------------------
+    # Statistics
+    # --------------------------------------------------------
+
+    components[
+        "statistics"
+    ] = request.get(
+        "statistics",
+        []
+    )
+
+    # --------------------------------------------------------
+    # Features
+    # --------------------------------------------------------
+
+    components[
+        "features"
+    ] = request.get(
+        "features",
+        []
+    )
+
+    # --------------------------------------------------------
+    # Decoder
+    # --------------------------------------------------------
+
+    components[
+        "decoder"
+    ] = request.get(
+        "decoder"
+    )
+
+    # --------------------------------------------------------
+    # Target
+    # --------------------------------------------------------
+
+    components[
+        "target_type"
+    ] = request.get(
+        "target_type"
+    )
+
+    # --------------------------------------------------------
+    # Visualization
+    # --------------------------------------------------------
+
+    components[
+        "visualization"
+    ] = request.get(
+        "visualization",
+        False
+    )
+
+    return components
+
+
+# ============================================================
+# BUILD COMPATIBILITY OBJECT
+# ============================================================
+#
+# The actual compatibility rules belong in the Master-DOC
+# library.
+#
+# At this stage analysis.py records the information needed by
+# the Generator to perform compatibility resolution.
+# ============================================================
+
+def build_compatibility_context(
+    request
+):
+
+    return {
+
+        "neural_data":
+            request.get(
+                "neural_data"
+            ),
+
+        "file_type":
+            request.get(
+                "file_type"
+            ),
+
+        "pipeline_type":
+            request.get(
+                "pipeline_type"
+            ),
+
+        "preprocessing":
+            request.get(
+                "preprocessing",
+                []
+            ),
+
+        "statistics":
+            request.get(
+                "statistics",
+                []
+            ),
+
+        "features":
+            request.get(
+                "features",
+                []
+            ),
+
+        "decoder":
+            request.get(
+                "decoder"
+            ),
+
+        "target_type":
+            request.get(
+                "target_type"
+            ),
+
+    }
 
 
 # ============================================================
 # BUILD GENERATION SPECIFICATION
 # ============================================================
 #
-# This is the central compilation operation.
+# THIS IS THE OBJECT THAT GETS HANDED TO generator.py.
 #
-# We deliberately use the actual Generator Master-DOC's
-# build_generator_specification() function.
-#
-# analysis.py does not recreate that algorithm.
-# ============================================================
-
-def compile_generation_specification(
-    request,
-    generator_module,
-    validation_module
-):
-
-    validation_function = require_function(
-        validation_module,
-        "validate_pipeline_configuration"
-    )
-
-    generator_function = require_function(
-        generator_module,
-        "build_generator_specification"
-    )
-
-    specification = generator_function(
-        request,
-        validation_function
-    )
-
-    return specification
-
-
-# ============================================================
-# RUN GENERATOR SAFETY GATE
-# ============================================================
-#
-# The Generator Master-DOC defines the final safety gate.
-#
-# Invalid specifications must never proceed toward source
+# This is the critical boundary between analysis and
 # generation.
 # ============================================================
 
-def run_generator_safety_gate(
-    specification,
-    generator_module
+def build_generation_specification(
+    request,
+    roles
 ):
 
-    safety_function = require_function(
-        generator_module,
-        "generator_safety_check"
-    )
-
-    return safety_function(
-        specification
-    )
-
-
-# ============================================================
-# CHECK GENERATION READINESS
-# ============================================================
-
-def check_generation_readiness(
-    specification,
-    generator_module
-):
-
-    readiness_function = require_function(
-        generator_module,
-        "ready_for_generation"
-    )
-
-    return bool(
-        readiness_function(
-            specification
+    master_doc_resources = (
+        select_master_doc_resources(
+            request,
+            roles
         )
     )
 
+    component_request = (
+        build_component_request(
+            request
+        )
+    )
+
+    compatibility = (
+        build_compatibility_context(
+            request
+        )
+    )
+
+    return {
+
+        "type":
+            "neural_pipeline_generation_specification",
+
+        "version":
+            "1.0",
+
+        "request":
+            dict(request),
+
+        "components":
+            component_request,
+
+        "master_doc_resources":
+            master_doc_resources,
+
+        "compatibility":
+            compatibility,
+
+        "generation":
+            {
+
+                "source_generation":
+                    True,
+
+                "compile_master_doc_code":
+                    True,
+
+                "write_output":
+                    False,
+
+            },
+
+    }
+
 
 # ============================================================
-# BUILD COMPLETE COMPILER STATE
+# HAND OFF TO GENERATOR
 # ============================================================
 #
-# This function performs the entire analysis stage.
+# This is deliberately isolated.
 #
-# It does NOT generate arbitrary scientific code.
+# analysis.py produces the object.
 #
-# It compiles a validated generation specification using the
-# actual Master-DOC Generator and Validation libraries.
+# generator.py receives the object.
+#
+# generator.py will eventually inspect it and compile the
+# actual pipeline.
+# ============================================================
+
+def handoff_to_generator(
+    generation_specification
+):
+
+    from generator import generate
+
+    return generate(
+        generation_specification
+    )
+
+
+# ============================================================
+# ANALYZE
+# ============================================================
+#
+# Main entry point used by ingestion.py.
 # ============================================================
 
 def analyze(
@@ -855,7 +928,7 @@ def analyze(
 
     # --------------------------------------------------------
     # STEP 1
-    # RECEIVE PARAMETER OBJECT
+    # Receive parameter object.
     # --------------------------------------------------------
 
     request = (
@@ -864,20 +937,29 @@ def analyze(
         )
     )
 
-
     # --------------------------------------------------------
     # STEP 2
-    # LOAD COMPLETE MASTER-DOC LIBRARY
+    # Normalize into a predictable dictionary.
+    # --------------------------------------------------------
+
+    request = (
+        normalize_request(
+            request
+        )
+    )
+
+    # --------------------------------------------------------
+    # STEP 3
+    # Load Master-DOC library.
     # --------------------------------------------------------
 
     master_doc_state = (
         load_master_docs()
     )
 
-
     # --------------------------------------------------------
-    # STEP 3
-    # VERIFY MASTER-DOC LIBRARY
+    # STEP 4
+    # Validate that the library itself is available.
     # --------------------------------------------------------
 
     library_validation = (
@@ -900,10 +982,9 @@ def analyze(
             )
         )
 
-
     # --------------------------------------------------------
-    # STEP 4
-    # IDENTIFY MASTER-DOC ROLES
+    # STEP 5
+    # Retrieve logical Master-DOC roles.
     # --------------------------------------------------------
 
     roles = (
@@ -912,456 +993,46 @@ def analyze(
         ]
     )
 
-
-    # --------------------------------------------------------
-    # STEP 5
-    # GET GENERATOR MASTER-DOC
-    # --------------------------------------------------------
-
-    generator_module = (
-        require_master_doc_role(
-            roles,
-            "generator"
-        )
-    )
-
-
     # --------------------------------------------------------
     # STEP 6
-    # GET VALIDATION MASTER-DOC
+    # Build the object that describes what the Generator
+    # needs to compile.
     # --------------------------------------------------------
 
-    validation_module = (
-        require_master_doc_role(
-            roles,
-            "validation"
+    generation_specification = (
+        build_generation_specification(
+            request,
+            roles
         )
     )
-
 
     # --------------------------------------------------------
     # STEP 7
-    # NORMALIZE USER REQUEST
-    # --------------------------------------------------------
+    # HANDOFF
     #
-    # This uses the actual Generator Master-DOC.
+    # This is the point where analysis.py stops being the
+    # construction layer and generator.py takes ownership.
     # --------------------------------------------------------
 
-    normalized_request = (
-        normalize_request(
-            request,
-            generator_module
+    generator_result = (
+        handoff_to_generator(
+            generation_specification
         )
     )
-
 
     # --------------------------------------------------------
     # STEP 8
-    # VALIDATE REQUEST
-    # --------------------------------------------------------
-    #
-    # This uses the actual Validation Master-DOC.
+    # Return Generator result to ingestion.py.
     # --------------------------------------------------------
 
-    validation_result = (
-        validate_request(
-            normalized_request,
-            validation_module
-        )
-    )
-
-
-    # --------------------------------------------------------
-    # STEP 9
-    # STOP INVALID REQUESTS
-    # --------------------------------------------------------
-
-    if not validation_result.get(
-        "valid",
-        False
-    ):
-
-        return {
-
-            "status":
-                "INVALID",
-
-            "parameters":
-                parameters,
-
-            "request":
-                normalized_request,
-
-            "master_docs":
-                master_doc_state[
-                    "loaded"
-                ],
-
-            "master_doc_roles":
-                roles,
-
-            "validation":
-                validation_result,
-
-            "specification":
-                None,
-
-            "safety":
-                None,
-
-            "ready_for_generation":
-                False
-
-        }
-
-
-    # --------------------------------------------------------
-    # STEP 10
-    # COMPILE GENERATION SPECIFICATION
-    # --------------------------------------------------------
-    #
-    # The Generator Master-DOC now determines:
-    #
-    #     required components
-    #     required stages
-    #     decoding requirements
-    #     data connections
-    #     output configuration
-    #
-    # according to the request.
-    # --------------------------------------------------------
-
-    specification = (
-        compile_generation_specification(
-            normalized_request,
-            generator_module,
-            validation_module
-        )
-    )
-
-
-    # --------------------------------------------------------
-    # STEP 11
-    # RUN FINAL GENERATOR SAFETY CHECK
-    # --------------------------------------------------------
-
-    safety = (
-        run_generator_safety_gate(
-            specification,
-            generator_module
-        )
-    )
-
-
-    # --------------------------------------------------------
-    # STEP 12
-    # DETERMINE GENERATION READINESS
-    # --------------------------------------------------------
-
-    ready = False
-
-    if safety.get(
-        "safe",
-        False
-    ):
-
-        ready = (
-            check_generation_readiness(
-                specification,
-                generator_module
-            )
-        )
-
-
-    # --------------------------------------------------------
-    # STEP 13
-    # RETURN COMPLETE COMPILER STATE
-    # --------------------------------------------------------
-
-    return {
-
-        "status":
-            (
-                "READY"
-                if ready
-                else "REJECTED"
-            ),
-
-        "parameters":
-            parameters,
-
-        "request":
-            normalized_request,
-
-        "master_docs":
-            master_doc_state[
-                "loaded"
-            ],
-
-        "master_doc_roles":
-            roles,
-
-        "validation":
-            validation_result,
-
-        "specification":
-            specification,
-
-        "safety":
-            safety,
-
-        "ready_for_generation":
-            ready
-
-    }
-
-
-# ============================================================
-# PRINT COMPILER REPORT
-# ============================================================
-#
-# This is intentionally terminal-based.
-#
-# The Master-DOC Generator explicitly defines terminal output
-# and disables popup reports.
-# ============================================================
-
-def print_compiler_report(
-    compiler_state
-):
-
-    print()
-
-    print(
-        "=" * 70
-    )
-
-    print(
-        "NEURAL PIPELINE COMPILER"
-    )
-
-    print(
-        "=" * 70
-    )
-
-    print()
-
-    print(
-        f"Status: "
-        f"{compiler_state.get('status')}"
-    )
-
-    print()
-
-
-    # --------------------------------------------------------
-    # MASTER-DOC STATUS
-    # --------------------------------------------------------
-
-    print(
-        "Master-DOCs loaded:"
-    )
-
-    print(
-        f"  "
-        f"{len(compiler_state.get('master_docs', {}))}"
-    )
-
-    print()
-
-
-    # --------------------------------------------------------
-    # REQUEST
-    # --------------------------------------------------------
-
-    request = (
-        compiler_state.get(
-            "request",
-            {}
-        )
-    )
-
-    print(
-        "Normalized request:"
-    )
-
-    for key, value in request.items():
-
-        print(
-            f"  {key}: {value}"
-        )
-
-    print()
-
-
-    # --------------------------------------------------------
-    # VALIDATION
-    # --------------------------------------------------------
-
-    validation = (
-        compiler_state.get(
-            "validation"
-        )
-    )
-
-    if validation is not None:
-
-        print(
-            "Validation:"
-        )
-
-        print(
-            f"  Valid: "
-            f"{validation.get('valid')}"
-        )
-
-        print(
-            f"  Message: "
-            f"{validation.get('message')}"
-        )
-
-        for error in validation.get(
-            "errors",
-            []
-        ):
-
-            print(
-                f"  ERROR: {error}"
-            )
-
-        print()
-
-
-    # --------------------------------------------------------
-    # SPECIFICATION
-    # --------------------------------------------------------
-
-    specification = (
-        compiler_state.get(
-            "specification"
-        )
-    )
-
-    if specification is not None:
-
-        print(
-            "Pipeline stages:"
-        )
-
-        for number, stage in enumerate(
-            specification.get(
-                "stages",
-                []
-            ),
-            start=1
-        ):
-
-            print(
-                f"  {number}. {stage}"
-            )
-
-        print()
-
-
-        print(
-            "Data connections:"
-        )
-
-        for connection in specification.get(
-            "connections",
-            []
-        ):
-
-            print(
-                f"  "
-                f"{connection.get('from')}"
-                f" -> "
-                f"{connection.get('to')}"
-            )
-
-        print()
-
-
-    # --------------------------------------------------------
-    # SAFETY
-    # --------------------------------------------------------
-
-    safety = (
-        compiler_state.get(
-            "safety"
-        )
-    )
-
-    if safety is not None:
-
-        print(
-            "Generator safety:"
-        )
-
-        print(
-            f"  Safe: "
-            f"{safety.get('safe')}"
-        )
-
-        for error in safety.get(
-            "errors",
-            []
-        ):
-
-            print(
-                f"  ERROR: {error}"
-            )
-
-        print()
-
-
-    # --------------------------------------------------------
-    # GENERATION READINESS
-    # --------------------------------------------------------
-
-    print(
-        "Ready for source generation:"
-    )
-
-    print(
-        f"  "
-        f"{compiler_state.get('ready_for_generation')}"
-    )
-
-    print()
-
-    print(
-        "=" * 70
-    )
+    return generator_result
 
 
 # ============================================================
 # DIRECT TEST
 # ============================================================
-#
-# Running:
-#
-#     python analysis.py
-#
-# verifies the complete compilation layer independently.
-#
-# It uses a test parameter object.
-#
-# In the real application, Ingestion.py calls:
-#
-#     analyze(parameters)
-#
-# ============================================================
 
 if __name__ == "__main__":
-
-    # --------------------------------------------------------
-    # TEST PARAMETER OBJECT
-    # --------------------------------------------------------
-    #
-    # This mirrors the parameter structure already defined
-    # by the Generator Master-DOC.
-    # --------------------------------------------------------
 
     test_parameters = {
 
@@ -1377,7 +1048,7 @@ if __name__ == "__main__":
         "preprocessing":
             [
                 "bandpass_filter",
-                "notch_filter"
+                "notch_filter",
             ],
 
         "statistics":
@@ -1387,7 +1058,7 @@ if __name__ == "__main__":
                 "variance",
                 "rms",
                 "spectral_power",
-                "dominant_frequency"
+                "dominant_frequency",
             ],
 
         "features":
@@ -1400,25 +1071,19 @@ if __name__ == "__main__":
             None,
 
         "visualization":
-            False
-
+            False,
     }
 
-
-    # --------------------------------------------------------
-    # RUN ANALYSIS / COMPILATION
-    # --------------------------------------------------------
-
-    compiler_state = analyze(
+    result = analyze(
         test_parameters
     )
 
+    print()
 
-    # --------------------------------------------------------
-    # DISPLAY RESULT
-    # --------------------------------------------------------
-
-    print_compiler_report(
-        compiler_state
+    print(
+        "ANALYSIS RESULT:"
     )
 
+    print(
+        result
+    )
