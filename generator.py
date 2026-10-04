@@ -23,6 +23,8 @@
 #          |
 #          +----> locate Master-DOCs
 #          |
+#          +----> identify Master-DOC roles
+#          |
 #          +----> acquire requested resources
 #          |
 #          +----> resolve dependencies
@@ -44,8 +46,8 @@
 #
 # Scientific implementations come from the Master-DOC library.
 #
-# The generator's job is to select, organize, and assemble
-# those existing resources into a coherent pipeline.
+# The generator selects, organizes, and assembles those existing
+# resources into a pipeline.
 # ============================================================
 
 
@@ -59,6 +61,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 from importlib.machinery import SourceFileLoader
+
 import ast
 import importlib.util
 import inspect
@@ -89,230 +92,315 @@ DEFAULT_GENERATED_FILE = (
 # ============================================================
 # MASTER-DOC ROLE PATTERNS
 # ============================================================
+#
+# These are intentionally broader than the previous version.
+#
+# The generator should not fail merely because a Master-DOC
+# filename uses a slightly different spelling.
+# ============================================================
 
 MASTER_DOC_ROLE_PATTERNS = {
 
     "ingestion": (
         "master-doc-ingestion",
+        "master-doc-input",
+        "master-doc-data",
+        "ingestion",
+        "input",
     ),
 
     "preprocessing": (
         "master-doc-preprocessing",
+        "master-doc-preprocess",
+        "preprocessing",
+        "preprocess",
     ),
 
     "statistics": (
         "master-doc-stats",
         "master-doc-statistics",
+        "statistics",
+        "stats",
     ),
 
     "signal_analysis": (
-        "master-doc-signal_analysis",
         "master-doc-signal-analysis",
+        "master-doc-signal_analysis",
+        "master-doc-signalanalysis",
+        "signal-analysis",
+        "signal_analysis",
+        "signal",
+        "spectral",
     ),
 
     "decoding": (
         "master-doc-decoding",
+        "master-doc-decoder",
+        "decoding",
+        "decoder",
     ),
 
     "visualization": (
         "master-doc-visualization",
         "master-doc-visualizatiom",
+        "visualization",
+        "visualisation",
+        "plot",
+        "visual",
     ),
 
     "validation": (
         "master-doc-validation",
+        "validation",
+        "validator",
     ),
 
     "pipeline": (
         "master-doc-pipeline",
+        "pipeline",
     ),
 
     "output": (
         "master-doc-output",
+        "output",
     ),
 
     "connectivity": (
         "master-doc-connectivity",
+        "connectivity",
+        "connection",
     ),
 
     "generator": (
         "master-doc-generator",
+        "generator",
     ),
 }
 
 
 # ============================================================
-# PARAMETER → MASTER-DOC FUNCTION MAPPINGS
+# PARAMETER → FUNCTION ALIASES
 # ============================================================
 
-PREPROCESSING_FUNCTIONS = {
+RESOURCE_ALIASES = {
 
-    "bandpass_filter":
+    # --------------------------------------------------------
+    # PREPROCESSING
+    # --------------------------------------------------------
+
+    "bandpass_filter": (
+        "bandpass_filter",
         "band_pass_filter",
+        "apply_bandpass_filter",
+        "apply_band_pass_filter",
+        "bandpass",
+        "band_pass",
+    ),
 
-    "band_pass_filter":
-        "band_pass_filter",
-
-    "notch_filter":
+    "notch_filter": (
         "notch_filter",
+        "apply_notch_filter",
+        "notch",
+    ),
 
-    "lowpass_filter":
+    "lowpass_filter": (
+        "lowpass_filter",
         "low_pass_filter",
+        "apply_lowpass_filter",
+        "apply_low_pass_filter",
+    ),
 
-    "low_pass_filter":
-        "low_pass_filter",
-
-    "highpass_filter":
+    "highpass_filter": (
+        "highpass_filter",
         "high_pass_filter",
+        "apply_highpass_filter",
+        "apply_high_pass_filter",
+    ),
 
-    "high_pass_filter":
-        "high_pass_filter",
-
-    "bandstop_filter":
+    "bandstop_filter": (
+        "bandstop_filter",
         "band_stop_filter",
+        "apply_bandstop_filter",
+        "apply_band_stop_filter",
+    ),
 
-    "band_stop_filter":
-        "band_stop_filter",
-
-    "remove_invalid_samples":
+    "remove_invalid_samples": (
         "remove_invalid_samples",
+        "remove_nan_samples",
+        "remove_nans",
+        "clean_invalid_samples",
+    ),
 
-    "remove_dc_offset":
+    "remove_dc_offset": (
         "remove_dc_offset",
+        "dc_offset_removal",
+    ),
 
-    "detrend":
+    "detrend": (
+        "detrend",
         "detrend_signal",
+        "remove_trend",
+    ),
 
-    "detrend_signal":
-        "detrend_signal",
-
-    "baseline_correction":
+    "baseline_correction": (
+        "baseline_correction",
         "baseline_correct",
+        "correct_baseline",
+    ),
 
-    "baseline_correct":
-        "baseline_correct",
-
-    "resample":
+    "resample": (
+        "resample",
         "resample_signal",
+        "resampling",
+    ),
 
-    "resample_signal":
-        "resample_signal",
-
-    "common_average_reference":
+    "common_average_reference": (
         "common_average_reference",
+        "car",
+        "apply_common_average_reference",
+    ),
 
-    "select_channels":
+    "select_channels": (
         "select_channels",
-}
+        "choose_channels",
+        "channel_selection",
+    ),
 
+    # --------------------------------------------------------
+    # STATISTICS
+    # --------------------------------------------------------
 
-STATISTICS_FUNCTIONS = {
-
-    "mean":
+    "mean": (
+        "mean",
         "calculate_mean",
+        "compute_mean",
+    ),
 
-    "median":
+    "median": (
+        "median",
         "calculate_median",
+        "compute_median",
+    ),
 
-    "mode":
+    "mode": (
+        "mode",
         "calculate_mode",
+        "compute_mode",
+    ),
 
-    "minimum":
+    "minimum": (
+        "minimum",
+        "min",
         "calculate_minimum",
+        "calculate_min",
+        "compute_minimum",
+    ),
 
-    "min":
-        "calculate_minimum",
-
-    "maximum":
+    "maximum": (
+        "maximum",
+        "max",
         "calculate_maximum",
+        "calculate_max",
+        "compute_maximum",
+    ),
 
-    "max":
-        "calculate_maximum",
-
-    "range":
-        "calculate_range",
-
-    "variance":
+    "variance": (
+        "variance",
         "calculate_variance",
+        "compute_variance",
+    ),
 
-    "std":
+    "std": (
+        "std",
+        "standard_deviation",
         "calculate_standard_deviation",
+        "calculate_std",
+        "compute_standard_deviation",
+    ),
 
-    "standard_deviation":
-        "calculate_standard_deviation",
-
-    "standard_error":
-        "calculate_standard_error",
-
-    "rms":
+    "rms": (
+        "rms",
         "calculate_rms",
+        "compute_rms",
+        "root_mean_square",
+    ),
 
-    "coefficient_of_variation":
-        "calculate_coefficient_of_variation",
+    "range": (
+        "range",
+        "calculate_range",
+        "compute_range",
+    ),
 
-    "skewness":
+    "skewness": (
+        "skewness",
         "calculate_skewness",
+        "compute_skewness",
+    ),
 
-    "kurtosis":
+    "kurtosis": (
+        "kurtosis",
         "calculate_kurtosis",
+        "compute_kurtosis",
+    ),
 
-    "shapiro_wilk":
-        "shapiro_wilk_test",
+    # --------------------------------------------------------
+    # SIGNAL ANALYSIS
+    # --------------------------------------------------------
 
-    "kolmogorov_smirnov":
-        "kolmogorov_smirnov_test",
-
-    "independent_t_test":
-        "independent_t_test",
-
-    "paired_t_test":
-        "paired_t_test",
-
-    "one_way_anova":
-        "one_way_anova",
-
-    "repeated_measures_anova":
-        "repeated_measures_anova",
-
-    "mann_whitney_u":
-        "mann_whitney_u",
-
-    "wilcoxon_signed_rank":
-        "wilcoxon_signed_rank",
-}
-
-
-SIGNAL_ANALYSIS_FUNCTIONS = {
-
-    "spectral_power":
+    "spectral_power": (
+        "spectral_power",
+        "calculate_spectral_power",
+        "compute_spectral_power",
+        "power_spectral_density",
         "calculate_power_spectral_density",
+        "compute_power_spectral_density",
+        "psd",
+    ),
 
-    "power_spectral_density":
-        "calculate_power_spectral_density",
-
-    "total_spectral_power":
+    "total_spectral_power": (
+        "total_spectral_power",
         "calculate_total_spectral_power",
+        "compute_total_spectral_power",
+    ),
 
-    "band_power":
+    "band_power": (
+        "band_power",
         "calculate_band_power",
+        "compute_band_power",
+    ),
 
-    "relative_band_power":
+    "relative_band_power": (
+        "relative_band_power",
         "calculate_relative_band_power",
+        "compute_relative_band_power",
+    ),
 
-    "dominant_frequency":
+    "dominant_frequency": (
+        "dominant_frequency",
         "calculate_dominant_frequency",
+        "compute_dominant_frequency",
+        "find_dominant_frequency",
+    ),
 
-    "peak_frequency":
+    "peak_frequency": (
+        "peak_frequency",
         "calculate_peak_frequency",
+        "compute_peak_frequency",
+        "find_peak_frequency",
+    ),
 
-    "spectral_entropy":
+    "spectral_entropy": (
+        "spectral_entropy",
         "calculate_spectral_entropy",
+        "compute_spectral_entropy",
+    ),
 
-    "spectral_edge":
+    "spectral_edge": (
+        "spectral_edge",
+        "spectral_edge_frequency",
+        "calculate_spectral_edge",
         "calculate_spectral_edge_frequency",
-
-    "spectral_edge_frequency":
-        "calculate_spectral_edge_frequency",
+    ),
 }
 
 
@@ -332,30 +420,35 @@ PIPELINE_STAGE_ORDER = (
 
 
 # ============================================================
-# RESOURCE OBJECT
+# RESOLVED RESOURCE
 # ============================================================
 
 @dataclass
 class ResolvedResource:
-    """
-    One concrete resource acquired from a Master-DOC.
-    """
 
     requested_name: str
+
     resolved_name: str
+
     role: str
+
     master_doc: str
+
     source_code: str = ""
+
     function_name: str | None = None
+
     dependencies: list[str] = field(
         default_factory=list
     )
+
     metadata: dict[str, Any] = field(
         default_factory=dict
     )
 
     @property
     def qualified_name(self) -> str:
+
         return (
             f"{self.master_doc}:"
             f"{self.resolved_name}"
@@ -368,15 +461,14 @@ class ResolvedResource:
 
 @dataclass
 class GenerationResult:
-    """
-    Final result returned by the generator.
-    """
 
     status: str
 
     specification: Any
 
-    resolved_resources: list[ResolvedResource] = field(
+    resolved_resources: list[
+        ResolvedResource
+    ] = field(
         default_factory=list
     )
 
@@ -414,66 +506,79 @@ def normalize_name(
 ) -> str:
 
     if value is None:
+
         return ""
 
-    return (
-        str(value)
+    value = str(value)
+
+    value = (
+        value
         .strip()
         .lower()
         .replace("-", "_")
         .replace(" ", "_")
     )
 
+    value = re.sub(
+        r"[^a-z0-9_]",
+        "_",
+        value
+    )
+
+    value = re.sub(
+        r"_+",
+        "_",
+        value
+    )
+
+    return value.strip("_")
+
 
 # ============================================================
-# NORMALIZE FILE TYPE
+# NORMALIZE ROLE
 # ============================================================
 
-def normalize_file_type(
+def normalize_role_name(
     value: Any
 ) -> str:
 
-    if value is None:
-        return ""
-
-    value = (
-        str(value)
-        .strip()
-        .lower()
+    normalized = normalize_name(
+        value
     )
 
     aliases = {
 
-        ".set":
-            "eeglab",
+        "stats":
+            "statistics",
 
-        "set":
-            "eeglab",
+        "stat":
+            "statistics",
 
-        "eeglab":
-            "eeglab",
+        "preprocess":
+            "preprocessing",
 
-        ".edf":
-            "edf",
+        "signal":
+            "signal_analysis",
 
-        "edf":
-            "edf",
+        "signalanalysis":
+            "signal_analysis",
 
-        ".csv":
-            "csv",
+        "signal_analysis":
+            "signal_analysis",
 
-        "csv":
-            "csv",
+        "visualisation":
+            "visualization",
+
     }
 
     return aliases.get(
-        value,
-        value
+        normalized,
+        normalized
     )
 
 
 # ============================================================
-# SPECIFICATION EXTRACTION
+# SPECIFICATION → DICTIONARY
 # ============================================================
 
 def specification_to_dict(
@@ -481,13 +586,17 @@ def specification_to_dict(
 ) -> dict[str, Any]:
 
     if specification is None:
+
         return {}
 
     if isinstance(
         specification,
         dict
     ):
-        return dict(specification)
+
+        return dict(
+            specification
+        )
 
     for method_name in (
         "to_dict",
@@ -509,7 +618,9 @@ def specification_to_dict(
                 dict
             ):
 
-                return dict(result)
+                return dict(
+                    result
+                )
 
     result = {}
 
@@ -518,17 +629,22 @@ def specification_to_dict(
     ):
 
         if name.startswith("_"):
+
             continue
 
         try:
+
             value = getattr(
                 specification,
                 name
             )
+
         except Exception:
+
             continue
 
         if callable(value):
+
             continue
 
         result[name] = value
@@ -537,7 +653,7 @@ def specification_to_dict(
 
 
 # ============================================================
-# DISCOVER MASTER-DOCS
+# DISCOVER MASTER-DOC FILES
 # ============================================================
 
 def discover_master_docs() -> list[Path]:
@@ -557,15 +673,24 @@ def discover_master_docs() -> list[Path]:
         )
 
     return sorted(
+
         (
             path
-            for path in MASTER_DOC_DIRECTORY.iterdir()
+
+            for path
+            in MASTER_DOC_DIRECTORY.iterdir()
+
             if (
                 path.is_file()
-                and path.suffix.lower() == ".py"
-                and not path.name.startswith(".")
+                and
+                path.suffix.lower() == ".py"
+                and
+                not path.name.startswith(".")
+                and
+                "__pycache__" not in path.parts
             )
         ),
+
         key=lambda path:
             path.name.lower()
     )
@@ -579,12 +704,10 @@ def load_master_doc(
     path: Path
 ) -> ModuleType:
 
-    module_name = (
-        re.sub(
-            r"[^A-Za-z0-9_]",
-            "_",
-            path.stem
-        )
+    module_name = re.sub(
+        r"[^A-Za-z0-9_]",
+        "_",
+        path.stem
     )
 
     loader = SourceFileLoader(
@@ -602,7 +725,7 @@ def load_master_doc(
     if spec is None:
 
         raise ImportError(
-            f"Unable to create module specification "
+            "Unable to create module specification "
             f"for {path.name}"
         )
 
@@ -629,7 +752,18 @@ def load_master_doc_library():
 
     errors = {}
 
-    for path in discover_master_docs():
+    paths = discover_master_docs()
+
+    print(
+        f"  Master-DOC files discovered: "
+        f"{len(paths)}"
+    )
+
+    for path in paths:
+
+        print(
+            f"    Loading: {path.name}"
+        )
 
         try:
 
@@ -639,16 +773,236 @@ def load_master_doc_library():
                 path
             )
 
+            print(
+                "      ✓ loaded"
+            )
+
         except Exception as error:
 
             errors[
                 path.name
             ] = error
 
+            print(
+                "      ✗ FAILED"
+            )
+
+            print(
+                f"        {type(error).__name__}: "
+                f"{error}"
+            )
+
     return (
         loaded,
         errors
     )
+
+
+# ============================================================
+# ROLE MATCHING
+# ============================================================
+
+def role_matches_document(
+    role: str,
+    document_name: str
+) -> bool:
+
+    normalized_document = normalize_name(
+        Path(
+            document_name
+        ).stem
+    )
+
+    patterns = (
+        MASTER_DOC_ROLE_PATTERNS.get(
+            role,
+            ()
+        )
+    )
+
+    for pattern in patterns:
+
+        normalized_pattern = (
+            normalize_name(
+                pattern
+            )
+        )
+
+        if (
+            normalized_document
+            ==
+            normalized_pattern
+        ):
+
+            return True
+
+        if normalized_pattern in normalized_document:
+
+            return True
+
+        if normalized_document in normalized_pattern:
+
+            return True
+
+    return False
+
+
+# ============================================================
+# CONTENT-BASED ROLE DETECTION
+# ============================================================
+#
+# Filename matching is the primary method.
+#
+# Content matching is the fallback.
+#
+# This is important because the generator should not depend
+# upon a single exact filename spelling.
+# ============================================================
+
+def infer_role_from_module(
+    document_name: str,
+    module: ModuleType
+) -> str | None:
+
+    normalized_document = normalize_name(
+        Path(
+            document_name
+        ).stem
+    )
+
+    # --------------------------------------------------------
+    # FIRST: filename evidence
+    # --------------------------------------------------------
+
+    for role in MASTER_DOC_ROLE_PATTERNS:
+
+        if role_matches_document(
+            role,
+            document_name
+        ):
+
+            return role
+
+    # --------------------------------------------------------
+    # SECOND: function-name evidence
+    # --------------------------------------------------------
+
+    function_names = []
+
+    for name in dir(module):
+
+        if name.startswith("_"):
+
+            continue
+
+        try:
+
+            value = getattr(
+                module,
+                name
+            )
+
+        except Exception:
+
+            continue
+
+        if callable(value):
+
+            function_names.append(
+                normalize_name(name)
+            )
+
+    function_text = " ".join(
+        function_names
+    )
+
+    # Preprocessing evidence.
+
+    preprocessing_terms = (
+        "bandpass",
+        "band_pass",
+        "notch",
+        "lowpass",
+        "low_pass",
+        "highpass",
+        "high_pass",
+        "detrend",
+        "baseline",
+        "resample",
+        "preprocess",
+    )
+
+    if any(
+        term in function_text
+        for term in preprocessing_terms
+    ):
+
+        return "preprocessing"
+
+    # Statistics evidence.
+
+    statistics_terms = (
+        "calculate_mean",
+        "calculate_median",
+        "calculate_variance",
+        "calculate_std",
+        "calculate_standard_deviation",
+        "calculate_rms",
+        "calculate_skewness",
+        "calculate_kurtosis",
+    )
+
+    if any(
+        term in function_text
+        for term in statistics_terms
+    ):
+
+        return "statistics"
+
+    # Signal analysis evidence.
+
+    signal_terms = (
+        "spectral",
+        "power_spectral",
+        "spectral_power",
+        "dominant_frequency",
+        "peak_frequency",
+        "band_power",
+        "entropy",
+    )
+
+    if any(
+        term in function_text
+        for term in signal_terms
+    ):
+
+        return "signal_analysis"
+
+    # Ingestion evidence.
+
+    ingestion_terms = (
+        "load_eeg",
+        "read_eeg",
+        "ingest",
+        "load_data",
+        "read_data",
+        "edf",
+        "eeglab",
+        "eeg",
+    )
+
+    if any(
+        term in (
+            normalized_document
+            + " "
+            + function_text
+        )
+        for term in ingestion_terms
+    ):
+
+        return "ingestion"
+
+    return None
 
 
 # ============================================================
@@ -661,48 +1015,40 @@ def identify_master_doc_roles(
 
     roles = {}
 
+    diagnostics = {}
+
     for document_name, module in (
         loaded_docs.items()
     ):
 
-        normalized = normalize_name(
-            Path(
-                document_name
-            ).stem
+        role = infer_role_from_module(
+            document_name,
+            module
         )
 
-        for role, patterns in (
-            MASTER_DOC_ROLE_PATTERNS.items()
-        ):
+        diagnostics[
+            document_name
+        ] = role
 
-            for pattern in patterns:
+        if role is not None:
 
-                normalized_pattern = (
-                    normalize_name(
-                        pattern
-                    )
-                )
+            # Do not overwrite a more specific match
+            # with a later fallback match.
 
-                if (
-                    normalized == normalized_pattern
-                    or
-                    normalized.startswith(
-                        normalized_pattern
-                    )
-                ):
+            if role not in roles:
 
-                    roles[role] = module
+                roles[
+                    role
+                ] = module
 
-                    break
-
-            if role in roles:
-                break
-
-    return roles
+    return (
+        roles,
+        diagnostics
+    )
 
 
 # ============================================================
-# GET REQUEST LIST
+# REQUEST LIST
 # ============================================================
 
 def get_request_list(
@@ -716,6 +1062,7 @@ def get_request_list(
     )
 
     if value is None:
+
         return []
 
     if isinstance(
@@ -729,114 +1076,236 @@ def get_request_list(
 
 
 # ============================================================
-# FIND FUNCTION
+# RESOURCE ALIASES
 # ============================================================
 
-def find_function(
-    module: ModuleType | None,
-    function_name: str
-):
-
-    if module is None:
-        return None
-
-    function = getattr(
-        module,
-        function_name,
-        None
-    )
-
-    if callable(function):
-        return function
-
-    return None
-
-
-# ============================================================
-# CANONICAL RESOURCE NAME
-# ============================================================
-
-def canonical_resource_name(
-    role: str,
-    requested_name: Any
-) -> str:
+def get_resource_aliases(
+    requested_name: str
+) -> list[str]:
 
     normalized = normalize_name(
         requested_name
     )
 
-    if role == "preprocessing":
-
-        return PREPROCESSING_FUNCTIONS.get(
+    aliases = list(
+        RESOURCE_ALIASES.get(
             normalized,
+            ()
+        )
+    )
+
+    if normalized not in aliases:
+
+        aliases.append(
             normalized
         )
 
-    if role == "statistics":
-
-        return STATISTICS_FUNCTIONS.get(
-            normalized,
-            normalized
-        )
-
-    if role == "signal_analysis":
-
-        return SIGNAL_ANALYSIS_FUNCTIONS.get(
-            normalized,
-            normalized
-        )
-
-    return normalized
+    return aliases
 
 
 # ============================================================
-# FIND RESOURCE BY NAME
+# FUNCTION CANDIDATE LIST
+# ============================================================
+
+def list_module_functions(
+    module: ModuleType
+) -> list[str]:
+
+    functions = []
+
+    for name in dir(module):
+
+        if name.startswith("_"):
+
+            continue
+
+        try:
+
+            value = getattr(
+                module,
+                name
+            )
+
+        except Exception:
+
+            continue
+
+        if callable(value):
+
+            functions.append(
+                name
+            )
+
+    return sorted(
+        functions,
+        key=str.lower
+    )
+
+
+# ============================================================
+# DIAGNOSTIC FUNCTION SEARCH
+# ============================================================
+
+def diagnostic_function_search(
+    module: ModuleType,
+    requested_name: str
+) -> list[str]:
+
+    aliases = {
+        normalize_name(
+            value
+        )
+        for value
+        in get_resource_aliases(
+            requested_name
+        )
+    }
+
+    candidates = []
+
+    for function_name in list_module_functions(
+        module
+    ):
+
+        normalized_function = (
+            normalize_name(
+                function_name
+            )
+        )
+
+        for alias in aliases:
+
+            if (
+                normalized_function == alias
+                or
+                alias in normalized_function
+                or
+                normalized_function in alias
+            ):
+
+                candidates.append(
+                    function_name
+                )
+
+                break
+
+    return sorted(
+        set(candidates),
+        key=str.lower
+    )
+
+
+# ============================================================
+# FIND FUNCTION BY ALIASES
+# ============================================================
+
+def find_function_by_aliases(
+    module: ModuleType,
+    requested_name: str
+):
+
+    aliases = get_resource_aliases(
+        requested_name
+    )
+
+    normalized_aliases = [
+        normalize_name(
+            alias
+        )
+        for alias
+        in aliases
+    ]
+
+    # --------------------------------------------------------
+    # EXACT NORMALIZED MATCH
+    # --------------------------------------------------------
+
+    for function_name in list_module_functions(
+        module
+    ):
+
+        normalized_function = normalize_name(
+            function_name
+        )
+
+        if normalized_function in normalized_aliases:
+
+            return getattr(
+                module,
+                function_name
+            )
+
+    # --------------------------------------------------------
+    # CONTAINMENT MATCH
+    # --------------------------------------------------------
+
+    for function_name in list_module_functions(
+        module
+    ):
+
+        normalized_function = normalize_name(
+            function_name
+        )
+
+        for alias in normalized_aliases:
+
+            if (
+                alias in normalized_function
+                or
+                normalized_function in alias
+            ):
+
+                return getattr(
+                    module,
+                    function_name
+                )
+
+    return None
+
+
+# ============================================================
+# FIND RESOURCE IN MODULE
 # ============================================================
 
 def find_named_resource(
     module: ModuleType | None,
-    requested_name: str,
-    canonical_name: str
+    requested_name: str
 ):
 
     if module is None:
+
         return None
 
-    candidates = [
-        requested_name,
-        canonical_name,
-        normalize_name(requested_name),
-        normalize_name(canonical_name),
-    ]
+    aliases = get_resource_aliases(
+        requested_name
+    )
 
-    normalized_candidates = {
+    normalized_aliases = {
         normalize_name(
-            candidate
+            alias
         )
-        for candidate in candidates
-        if candidate
+        for alias
+        in aliases
     }
 
     # --------------------------------------------------------
-    # DIRECT ATTRIBUTE SEARCH
+    # DIRECT FUNCTION / ATTRIBUTE SEARCH
     # --------------------------------------------------------
 
-    for attribute_name in dir(
-        module
-    ):
+    for attribute_name in dir(module):
 
         if attribute_name.startswith("__"):
+
             continue
 
-        normalized_attribute = normalize_name(
-            attribute_name
+        normalized_attribute = (
+            normalize_name(
+                attribute_name
+            )
         )
 
-        if (
-            normalized_attribute
-            not in
-            normalized_candidates
-        ):
+        if normalized_attribute not in normalized_aliases:
+
             continue
 
         try:
@@ -856,14 +1325,29 @@ def find_named_resource(
         )
 
     # --------------------------------------------------------
-    # SEARCH RESOURCE DICTIONARIES
+    # FUNCTION ALIAS SEARCH
     # --------------------------------------------------------
 
-    for attribute_name in dir(
-        module
-    ):
+    function = find_function_by_aliases(
+        module,
+        requested_name
+    )
+
+    if function is not None:
+
+        return (
+            function.__name__,
+            function
+        )
+
+    # --------------------------------------------------------
+    # RESOURCE DICTIONARIES
+    # --------------------------------------------------------
+
+    for attribute_name in dir(module):
 
         if attribute_name.startswith("__"):
+
             continue
 
         try:
@@ -881,24 +1365,21 @@ def find_named_resource(
             container,
             dict
         ):
+
             continue
 
-        # Dictionary key.
+        for key, value in container.items():
 
-        for key, value in (
-            container.items()
-        ):
-
-            if normalize_name(
+            normalized_key = normalize_name(
                 key
-            ) in normalized_candidates:
+            )
+
+            if normalized_key in normalized_aliases:
 
                 return (
                     str(key),
                     value
                 )
-
-            # Dictionary entry with metadata.
 
             if isinstance(
                 value,
@@ -911,6 +1392,7 @@ def find_named_resource(
                     "key",
                     "identifier",
                     "resource",
+                    "function",
                 ):
 
                     metadata_value = (
@@ -919,13 +1401,16 @@ def find_named_resource(
                         )
                     )
 
+                    if metadata_value is None:
+
+                        continue
+
                     if (
-                        metadata_value is not None
-                        and
                         normalize_name(
                             metadata_value
                         )
-                        in normalized_candidates
+                        in
+                        normalized_aliases
                     ):
 
                         return (
@@ -937,7 +1422,7 @@ def find_named_resource(
 
 
 # ============================================================
-# SOURCE OF FUNCTION
+# RESOURCE SOURCE
 # ============================================================
 
 def get_function_source(
@@ -957,10 +1442,6 @@ def get_function_source(
 
         return ""
 
-
-# ============================================================
-# SOURCE OF RESOURCE
-# ============================================================
 
 def get_resource_source(
     resource
@@ -1006,7 +1487,7 @@ def get_resource_source(
 
 
 # ============================================================
-# EXTRACT DEPENDENCIES FROM SOURCE
+# EXTRACT DEPENDENCIES
 # ============================================================
 
 def extract_dependencies(
@@ -1014,6 +1495,7 @@ def extract_dependencies(
 ) -> list[str]:
 
     if not source_code:
+
         return []
 
     dependencies = []
@@ -1028,9 +1510,7 @@ def extract_dependencies(
 
         return dependencies
 
-    for node in (
-        ast.walk(tree)
-    ):
+    for node in ast.walk(tree):
 
         if isinstance(
             node,
@@ -1058,7 +1538,7 @@ def extract_dependencies(
 
 
 # ============================================================
-# RESOLVE RESOURCE
+# RESOLVE ONE RESOURCE
 # ============================================================
 
 def resolve_resource(
@@ -1069,26 +1549,20 @@ def resolve_resource(
 ) -> ResolvedResource | None:
 
     if requested_name is None:
+
         return None
 
     requested_name = str(
         requested_name
     )
 
-    canonical_name = (
-        canonical_resource_name(
-            role,
-            requested_name
-        )
-    )
-
     found = find_named_resource(
         module,
-        requested_name,
-        canonical_name
+        requested_name
     )
 
     if found is None:
+
         return None
 
     resolved_name, resource = found
@@ -1100,12 +1574,11 @@ def resolve_resource(
     function_name = None
 
     if callable(resource):
-        function_name = (
-            getattr(
-                resource,
-                "__name__",
-                None
-            )
+
+        function_name = getattr(
+            resource,
+            "__name__",
+            None
         )
 
     dependencies = (
@@ -1120,7 +1593,7 @@ def resolve_resource(
             requested_name,
 
         resolved_name=
-            resolved_name,
+            str(resolved_name),
 
         role=
             role,
@@ -1138,8 +1611,10 @@ def resolve_resource(
             dependencies,
 
         metadata={
-            "canonical_name":
-                canonical_name,
+            "aliases":
+                get_resource_aliases(
+                    requested_name
+                ),
 
             "resource_type":
                 type(resource).__name__,
@@ -1148,52 +1623,219 @@ def resolve_resource(
 
 
 # ============================================================
+# SEARCH ENTIRE MASTER-DOC LIBRARY
+# ============================================================
+#
+# This is the critical fallback.
+#
+# The generator first searches the Master-DOC associated with
+# the requested role.
+#
+# If the role-specific Master-DOC does not expose the requested
+# resource, the generator searches the entire loaded library.
+#
+# This prevents exact filename/role assumptions from blocking
+# otherwise valid resources.
+# ============================================================
+
+def resolve_resource_across_library(
+    role: str,
+    requested_name: str,
+    roles: dict[str, ModuleType],
+    loaded_docs: dict[str, ModuleType]
+):
+
+    # --------------------------------------------------------
+    # PRIMARY SEARCH
+    # --------------------------------------------------------
+
+    primary_module = roles.get(
+        role
+    )
+
+    primary_name = (
+        role.replace(
+            "_",
+            "-"
+        )
+        .title()
+    )
+
+    print(
+        f"  Searching role '{role}'"
+    )
+
+    if primary_module is not None:
+
+        print(
+            f"    Primary Master-DOC: "
+            f"{primary_module.__name__}"
+        )
+
+        print(
+            f"    Requested resource: "
+            f"{requested_name}"
+        )
+
+        aliases = get_resource_aliases(
+            requested_name
+        )
+
+        print(
+            f"    Aliases: "
+            f"{', '.join(aliases)}"
+        )
+
+        resource = resolve_resource(
+            primary_module,
+            role,
+            requested_name,
+            primary_name
+        )
+
+        if resource is not None:
+
+            print(
+                f"    ✓ Found in primary "
+                f"Master-DOC: "
+                f"{resource.resolved_name}"
+            )
+
+            return resource
+
+        print(
+            "    ✗ Not found in primary "
+            "Master-DOC."
+        )
+
+        candidates = (
+            diagnostic_function_search(
+                primary_module,
+                requested_name
+            )
+        )
+
+        if candidates:
+
+            print(
+                "    Candidate functions:"
+            )
+
+            for candidate in candidates:
+
+                print(
+                    f"      - {candidate}"
+                )
+
+        else:
+
+            print(
+                "    Candidate functions: "
+                "none"
+            )
+
+    else:
+
+        print(
+            f"    ✗ No Master-DOC role "
+            f"resolved for '{role}'."
+        )
+
+    # --------------------------------------------------------
+    # LIBRARY-WIDE FALLBACK
+    # --------------------------------------------------------
+
+    print(
+        "    Searching complete "
+        "Master-DOC library..."
+    )
+
+    for document_name, module in (
+        loaded_docs.items()
+    ):
+
+        if (
+            primary_module is not None
+            and
+            module is primary_module
+        ):
+
+            continue
+
+        resource = resolve_resource(
+            module,
+            role,
+            requested_name,
+            Path(
+                document_name
+            ).stem
+        )
+
+        if resource is not None:
+
+            print(
+                f"    ✓ Found in fallback "
+                f"Master-DOC: "
+                f"{document_name}"
+            )
+
+            return resource
+
+    print(
+        "    ✗ Resource not found "
+        "anywhere in Master-DOC library."
+    )
+
+    return None
+
+
+# ============================================================
 # RESOLVE INGESTION
 # ============================================================
 
 def resolve_ingestion(
     specification: dict[str, Any],
-    module: ModuleType | None,
-    master_doc_name: str
+    roles: dict[str, ModuleType],
+    loaded_docs: dict[str, ModuleType]
 ):
 
     resources = []
 
-    neural_data = (
-        specification.get(
-            "neural_data"
-        )
+    neural_data = specification.get(
+        "neural_data"
     )
 
-    file_type = (
-        specification.get(
-            "file_type"
-        )
+    file_type = specification.get(
+        "file_type"
     )
 
     candidates = []
 
     if neural_data:
+
         candidates.append(
             str(neural_data)
         )
 
     if file_type:
+
         candidates.append(
             str(file_type)
         )
 
     # --------------------------------------------------------
-    # First try explicit resource names.
+    # Explicit candidates
     # --------------------------------------------------------
 
     for candidate in candidates:
 
-        resource = resolve_resource(
-            module,
-            "ingestion",
-            candidate,
-            master_doc_name
+        resource = (
+            resolve_resource_across_library(
+                "ingestion",
+                candidate,
+                roles,
+                loaded_docs
+            )
         )
 
         if resource is not None:
@@ -1203,115 +1845,6 @@ def resolve_ingestion(
             )
 
             return resources
-
-    # --------------------------------------------------------
-    # Try common ingestion accessor functions.
-    # --------------------------------------------------------
-
-    accessors = (
-
-        "get_ingestion_resource",
-
-        "get_data_ingestion_resource",
-
-        "resolve_ingestion_resource",
-
-        "get_ingestion_method",
-
-    )
-
-    for accessor_name in accessors:
-
-        accessor = find_function(
-            module,
-            accessor_name
-        )
-
-        if accessor is None:
-            continue
-
-        for candidate in candidates:
-
-            try:
-
-                result = accessor(
-                    candidate
-                )
-
-            except TypeError:
-
-                try:
-
-                    result = accessor(
-                        neural_data,
-                        file_type
-                    )
-
-                except Exception:
-                    continue
-
-            except Exception:
-                continue
-
-            if result is None:
-                continue
-
-            source_code = (
-                get_resource_source(
-                    result
-                )
-            )
-
-            if (
-                source_code
-                or
-                isinstance(
-                    result,
-                    dict
-                )
-            ):
-
-                resources.append(
-                    ResolvedResource(
-
-                        requested_name=
-                            candidate,
-
-                        resolved_name=
-                            candidate,
-
-                        role=
-                            "ingestion",
-
-                        master_doc=
-                            master_doc_name,
-
-                        source_code=
-                            source_code,
-
-                        function_name=(
-                            getattr(
-                                result,
-                                "__name__",
-                                None
-                            )
-                            if callable(result)
-                            else None
-                        ),
-
-                        dependencies=
-                            extract_dependencies(
-                                source_code
-                            ),
-
-                        metadata={
-                            "accessor":
-                                accessor_name
-                        }
-                    )
-                )
-
-                return resources
 
     return resources
 
@@ -1323,8 +1856,8 @@ def resolve_ingestion(
 def resolve_component_list(
     specification: dict[str, Any],
     role: str,
-    module: ModuleType | None,
-    master_doc_name: str
+    roles: dict[str, ModuleType],
+    loaded_docs: dict[str, ModuleType]
 ):
 
     resources = []
@@ -1365,23 +1898,27 @@ def resolve_component_list(
     for requested_name in requests:
 
         if (
-            requested_name is False
-            or
             requested_name is None
+            or
+            requested_name is False
         ):
+
             continue
 
         if isinstance(
             requested_name,
             bool
         ):
+
             continue
 
-        resource = resolve_resource(
-            module,
-            role,
-            requested_name,
-            master_doc_name
+        resource = (
+            resolve_resource_across_library(
+                role,
+                str(requested_name),
+                roles,
+                loaded_docs
+            )
         )
 
         if resource is None:
@@ -1393,11 +1930,11 @@ def resolve_component_list(
                 )
             )
 
-            continue
+        else:
 
-        resources.append(
-            resource
-        )
+            resources.append(
+                resource
+            )
 
     return (
         resources,
@@ -1411,7 +1948,8 @@ def resolve_component_list(
 
 def resolve_all_resources(
     specification: dict[str, Any],
-    roles: dict[str, ModuleType]
+    roles: dict[str, ModuleType],
+    loaded_docs: dict[str, ModuleType]
 ):
 
     resolved = []
@@ -1422,68 +1960,41 @@ def resolve_all_resources(
     # INGESTION
     # --------------------------------------------------------
 
-    ingestion_module = roles.get(
-        "ingestion"
+    ingestion_resources = (
+        resolve_ingestion(
+            specification,
+            roles,
+            loaded_docs
+        )
     )
 
-    if ingestion_module is not None:
+    if ingestion_resources:
 
-        ingestion_name = (
-            "Master-DOC-Ingestion"
+        resolved.extend(
+            ingestion_resources
         )
-
-        ingestion_resources = (
-            resolve_ingestion(
-                specification,
-                ingestion_module,
-                ingestion_name
-            )
-        )
-
-        if ingestion_resources:
-
-            resolved.extend(
-                ingestion_resources
-            )
-
-        else:
-
-            neural_data = (
-                specification.get(
-                    "neural_data"
-                )
-            )
-
-            file_type = (
-                specification.get(
-                    "file_type"
-                )
-            )
-
-            unresolved.append(
-                (
-                    "ingestion",
-                    (
-                        neural_data
-                        or
-                        file_type
-                        or
-                        "unknown"
-                    )
-                )
-            )
 
     else:
 
         unresolved.append(
             (
                 "ingestion",
-                "Master-DOC-Ingestion unavailable"
+                (
+                    specification.get(
+                        "neural_data"
+                    )
+                    or
+                    specification.get(
+                        "file_type"
+                    )
+                    or
+                    "unknown"
+                )
             )
         )
 
     # --------------------------------------------------------
-    # STANDARD ROLES
+    # COMPONENT ROLES
     # --------------------------------------------------------
 
     for role in (
@@ -1495,25 +2006,12 @@ def resolve_all_resources(
         "output",
     ):
 
-        module = roles.get(
-            role
-        )
-
-        if module is None:
-            continue
-
-        master_doc_name = (
-            role
-            .replace("_", "-")
-            .title()
-        )
-
         resources, missing = (
             resolve_component_list(
                 specification,
                 role,
-                module,
-                master_doc_name
+                roles,
+                loaded_docs
             )
         )
 
@@ -1565,19 +2063,25 @@ def order_resources(
 ) -> list[ResolvedResource]:
 
     stage_index = {
+
         role: index
-        for index, role in enumerate(
+
+        for index, role
+        in enumerate(
             PIPELINE_STAGE_ORDER
         )
     }
 
     return sorted(
+
         resources,
+
         key=lambda resource: (
             stage_index.get(
                 resource.role,
                 999
             ),
+
             resource.resolved_name.lower()
         )
     )
@@ -1598,10 +2102,6 @@ def check_compatibility(
         resource.role
         for resource in resources
     }
-
-    # --------------------------------------------------------
-    # Every nonempty requested stage must have resources.
-    # --------------------------------------------------------
 
     stage_keys = {
 
@@ -1624,18 +2124,29 @@ def check_compatibility(
             "output",
     }
 
-    for role, key in stage_keys.items():
-
-        requested = get_request_list(
-            specification,
-            key
-        )
+    for role, key in (
+        stage_keys.items()
+    ):
 
         requested = [
             value
-            for value in requested
-            if value is not False
-            and value is not None
+
+            for value
+            in get_request_list(
+                specification,
+                key
+            )
+
+            if (
+                value is not None
+                and
+                value is not False
+                and
+                not isinstance(
+                    value,
+                    bool
+                )
+            )
         ]
 
         if (
@@ -1650,55 +2161,46 @@ def check_compatibility(
             )
 
     # --------------------------------------------------------
-    # Basic ordering constraints.
+    # DEPENDENCY ORDER
     # --------------------------------------------------------
 
     if (
-        "statistics" in roles_present
+        "preprocessing"
+        in roles_present
         and
-        "ingestion" not in roles_present
+        "ingestion"
+        not in roles_present
     ):
 
         errors.append(
-            "Statistics require an ingestion stage."
+            "Preprocessing requires "
+            "an ingestion stage."
         )
 
     if (
-        "preprocessing" in roles_present
+        "statistics"
+        in roles_present
         and
-        "ingestion" not in roles_present
+        "ingestion"
+        not in roles_present
     ):
 
         errors.append(
-            "Preprocessing requires an ingestion stage."
+            "Statistics requires "
+            "an ingestion stage."
         )
 
     if (
-        "signal_analysis" in roles_present
+        "signal_analysis"
+        in roles_present
         and
-        "ingestion" not in roles_present
+        "ingestion"
+        not in roles_present
     ):
 
         errors.append(
-            "Signal analysis requires an "
-            "ingestion stage."
-        )
-
-    if (
-        "decoding" in roles_present
-        and
-        not (
-            "signal_analysis" in roles_present
-            or
-            "statistics" in roles_present
-            or
-            "preprocessing" in roles_present
-        )
-    ):
-
-        errors.append(
-            "Decoding requires an upstream "
-            "analysis stage."
+            "Signal analysis requires "
+            "an ingestion stage."
         )
 
     return {
@@ -1762,13 +2264,12 @@ def clean_source(
 ) -> str:
 
     if not source:
+
         return ""
 
-    source = textwrap.dedent(
+    return textwrap.dedent(
         source
     ).strip()
-
-    return source
 
 
 # ============================================================
@@ -1783,26 +2284,21 @@ def assemble_source(
 
     sections = []
 
-    # --------------------------------------------------------
-    # HEADER
-    # --------------------------------------------------------
-
     sections.append(
-        "\n".join([
-            "# ============================================================",
-            "# GENERATED NEURAL PIPELINE",
-            "# ============================================================",
-            "#",
-            "# This file was assembled by generator.py.",
-            "#",
-            "# Scientific implementations originate from the",
-            "# PIPELINE-GENERATOR Master-DOC library.",
-            "#",
-            "# Do not edit generated source as the canonical scientific",
-            "# implementation. Modify the corresponding Master-DOC.",
-            "# ============================================================",
-            "",
-        ])
+        textwrap.dedent(
+            """
+            # ============================================================
+            # GENERATED NEURAL PIPELINE
+            # ============================================================
+            #
+            # This file was assembled by generator.py.
+            #
+            # Scientific implementations originate from the
+            # PIPELINE-GENERATOR Master-DOC library.
+            #
+            # ============================================================
+            """
+        ).strip()
     )
 
     # --------------------------------------------------------
@@ -1816,51 +2312,32 @@ def assemble_source(
         if dependency.startswith(
             "__"
         ):
-            continue
 
-        if "." in dependency:
-
-            root = dependency.split(
-                ".",
-                1
-            )[0]
-
-        else:
-
-            root = dependency
-
-        if root in (
-            "typing",
-            "dataclasses",
-            "pathlib",
-            "inspect",
-            "ast",
-            "re",
-        ):
             continue
 
         import_lines.append(
-            f"import {root}"
+            f"import {dependency}"
         )
-
-    import_lines = sorted(
-        set(import_lines)
-    )
 
     if import_lines:
 
         sections.append(
-            "\n".join([
-                "# ============================================================",
-                "# IMPORTS ACQUIRED FROM MASTER-DOC RESOURCES",
-                "# ============================================================",
-                *import_lines,
-                "",
-            ])
+            "\n".join(
+                [
+                    "# ============================================================",
+                    "# IMPORTS ACQUIRED FROM MASTER-DOC RESOURCES",
+                    "# ============================================================",
+                    *sorted(
+                        set(
+                            import_lines
+                        )
+                    ),
+                ]
+            )
         )
 
     # --------------------------------------------------------
-    # RESOURCE DEFINITIONS
+    # RESOURCE SOURCE
     # --------------------------------------------------------
 
     for resource in resources:
@@ -1870,83 +2347,95 @@ def assemble_source(
         )
 
         if not source:
+
             continue
 
         sections.append(
-            "\n".join([
-                "# ============================================================",
-                f"# {resource.role.upper()}",
-                f"# RESOURCE: {resource.requested_name}",
-                f"# MASTER-DOC: {resource.master_doc}",
-                "# ============================================================",
-                source,
-                "",
-            ])
+            "\n".join(
+                [
+                    "# ============================================================",
+                    f"# {resource.role.upper()}",
+                    f"# RESOURCE: {resource.requested_name}",
+                    f"# MASTER-DOC: {resource.master_doc}",
+                    "# ============================================================",
+                    source,
+                ]
+            )
         )
 
     # --------------------------------------------------------
-    # PIPELINE EXECUTION SHELL
+    # PIPELINE CONFIGURATION
     # --------------------------------------------------------
 
     sections.append(
-        "\n".join([
-            "# ============================================================",
-            "# GENERATED PIPELINE CONFIGURATION",
-            "# ============================================================",
-            "",
-            "PIPELINE_CONFIGURATION = ",
-            repr(specification),
-            "",
-            "",
-            "def run_pipeline(data=None):",
-            '    """Run the assembled pipeline."""',
-            "",
-            "    current_data = data",
-            "",
-        ])
+        "\n".join(
+            [
+                "# ============================================================",
+                "# PIPELINE CONFIGURATION",
+                "# ============================================================",
+                "",
+                "PIPELINE_CONFIGURATION = "
+                + repr(
+                    specification
+                ),
+                "",
+            ]
+        )
     )
 
     # --------------------------------------------------------
-    # EXECUTION ORDER
+    # EXECUTION SHELL
     # --------------------------------------------------------
 
-    executable_resources = [
-        resource
-        for resource in resources
-        if resource.function_name
+    execution = [
+
+        "# ============================================================",
+        "# PIPELINE EXECUTION",
+        "# ============================================================",
+        "",
+        "def run_pipeline(data=None):",
+        "    current_data = data",
+        "",
     ]
 
-    for resource in executable_resources:
+    for resource in resources:
 
-        function_name = (
-            resource.function_name
-        )
+        if not resource.function_name:
 
-        if not function_name:
             continue
 
-        sections.append(
-            "\n".join([
+        execution.extend(
+            [
                 f"    # {resource.role}: "
                 f"{resource.requested_name}",
+
                 f"    # Master-DOC: "
                 f"{resource.master_doc}",
+
                 f"    current_data = "
-                f"{function_name}(current_data)",
+                f"{resource.function_name}"
+                f"(current_data)",
+
                 "",
-            ])
+            ]
         )
 
-    sections.append(
-        "\n".join([
-            "    return current_data",
-            "",
-        ])
+    execution.append(
+        "    return current_data"
     )
 
-    return "\n".join(
-        sections
-    ).rstrip() + "\n"
+    sections.append(
+        "\n".join(
+            execution
+        )
+    )
+
+    return (
+        "\n\n".join(
+            sections
+        )
+        + "\n"
+    )
 
 
 # ============================================================
@@ -1960,7 +2449,10 @@ def validate_generated_source(
     if not source_code.strip():
 
         return {
-            "valid": False,
+
+            "valid":
+                False,
+
             "errors": [
                 "Generated source is empty."
             ],
@@ -1975,7 +2467,10 @@ def validate_generated_source(
     except SyntaxError as error:
 
         return {
-            "valid": False,
+
+            "valid":
+                False,
+
             "errors": [
                 (
                     "Generated source contains "
@@ -1985,8 +2480,12 @@ def validate_generated_source(
         }
 
     return {
-        "valid": True,
-        "errors": [],
+
+        "valid":
+            True,
+
+        "errors":
+            [],
     }
 
 
@@ -2031,16 +2530,30 @@ def generate(
     output_path: Path | None = None
 ) -> GenerationResult:
 
-    # --------------------------------------------------------
+    # ========================================================
     # STEP 1 — RECEIVE OBJECT
-    # --------------------------------------------------------
+    # ========================================================
 
     print()
-    print("=" * 70)
-    print("PIPELINE GENERATOR")
-    print("=" * 70)
+
+    print(
+        "=" * 70
+    )
+
+    print(
+        "PIPELINE GENERATOR"
+    )
+
+    print(
+        "=" * 70
+    )
+
     print()
-    print("OBJECT RECEIVED")
+
+    print(
+        "OBJECT RECEIVED"
+    )
+
     print()
 
     specification = (
@@ -2053,9 +2566,25 @@ def generate(
         "Generation specification read."
     )
 
-    # --------------------------------------------------------
+    print()
+
+    print(
+        "Specification contents:"
+    )
+
+    for key, value in (
+        specification.items()
+    ):
+
+        print(
+            f"  {key}: {value}"
+        )
+
+    # ========================================================
     # STEP 2 — LOAD MASTER-DOC LIBRARY
-    # --------------------------------------------------------
+    # ========================================================
+
+    print()
 
     print(
         "Loading Master-DOC library..."
@@ -2071,7 +2600,8 @@ def generate(
 
         return GenerationResult(
 
-            status="FAILED",
+            status=
+                "FAILED",
 
             specification=
                 generation_specification,
@@ -2081,15 +2611,23 @@ def generate(
             ]
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # STEP 3 — IDENTIFY ROLES
-    # --------------------------------------------------------
+    # ========================================================
 
-    roles = (
+    print()
+
+    print(
+        "Resolving Master-DOC roles..."
+    )
+
+    roles, role_diagnostics = (
         identify_master_doc_roles(
             loaded_docs
         )
     )
+
+    print()
 
     print(
         f"Master-DOCs loaded: "
@@ -2101,11 +2639,36 @@ def generate(
         f"{len(roles)}"
     )
 
-    # --------------------------------------------------------
-    # STEP 4 — RESOLVE RESOURCES
-    # --------------------------------------------------------
+    print()
+
+    print(
+        "Master-DOC role map:"
+    )
+
+    for document_name, role in (
+        role_diagnostics.items()
+    ):
+
+        if role is None:
+
+            print(
+                f"  ? {document_name}"
+                f" -> role not identified"
+            )
+
+        else:
+
+            print(
+                f"  ✓ {document_name}"
+                f" -> {role}"
+            )
+
+    # ========================================================
+    # STEP 4 — RESOURCE RESOLUTION
+    # ========================================================
 
     print()
+
     print(
         "Resolving requested resources..."
     )
@@ -2113,30 +2676,39 @@ def generate(
     resources, unresolved = (
         resolve_all_resources(
             specification,
-            roles
+            roles,
+            loaded_docs
         )
     )
 
-    # Include Master-DOC execution errors.
+    # ========================================================
+    # STEP 5 — MASTER-DOC LOAD ERRORS
+    # ========================================================
 
-    for document_name, error in (
-        load_errors.items()
-    ):
+    if load_errors:
 
-        unresolved.append(
-            (
-                "master_doc",
-                (
-                    f"{document_name} -> "
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                )
-            )
+        print()
+
+        print(
+            "Master-DOC load errors:"
         )
 
-    # --------------------------------------------------------
-    # STEP 5 — RESOLVE DEPENDENCIES
-    # --------------------------------------------------------
+        for document_name, error in (
+            load_errors.items()
+        ):
+
+            print(
+                f"  ✗ {document_name}"
+            )
+
+            print(
+                f"    {type(error).__name__}: "
+                f"{error}"
+            )
+
+    # ========================================================
+    # STEP 6 — DEPENDENCIES
+    # ========================================================
 
     dependencies = (
         resolve_dependencies(
@@ -2150,9 +2722,9 @@ def generate(
         )
     )
 
-    # --------------------------------------------------------
-    # STEP 6 — ORDER RESOURCES
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 7 — ORDER
+    # ========================================================
 
     resources = (
         order_resources(
@@ -2166,9 +2738,9 @@ def generate(
         )
     )
 
-    # --------------------------------------------------------
-    # STEP 7 — COMPATIBILITY
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 8 — COMPATIBILITY
+    # ========================================================
 
     compatibility = (
         check_compatibility(
@@ -2177,14 +2749,24 @@ def generate(
         )
     )
 
-    # --------------------------------------------------------
-    # STEP 8 — REPORT RESOLUTION
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 9 — RESOLUTION REPORT
+    # ========================================================
 
     print()
-    print("=" * 70)
-    print("RESOURCE RESOLUTION")
-    print("=" * 70)
+
+    print(
+        "=" * 70
+    )
+
+    print(
+        "RESOURCE RESOLUTION"
+    )
+
+    print(
+        "=" * 70
+    )
+
     print()
 
     print(
@@ -2195,16 +2777,30 @@ def generate(
     for resource in resources:
 
         print(
-            f"  ✓ {resource.requested_name}"
+            f"  ✓ "
+            f"{resource.requested_name}"
             f" -> "
             f"{resource.master_doc}"
             f" -> "
             f"{resource.resolved_name}"
         )
 
+        if resource.function_name:
+
+            print(
+                f"      function: "
+                f"{resource.function_name}"
+            )
+
+        print(
+            f"      source acquired: "
+            f"{bool(resource.source_code)}"
+        )
+
     if unresolved:
 
         print()
+
         print(
             "Unresolved resources:"
         )
@@ -2212,18 +2808,21 @@ def generate(
         for role, name in unresolved:
 
             print(
-                f"  ✗ {role}: {name}"
+                f"  ✗ "
+                f"{role}: "
+                f"{name}"
             )
 
-    # --------------------------------------------------------
-    # STEP 9 — STOP IF RESOURCE RESOLUTION FAILED
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 10 — STOP IF RESOURCE RESOLUTION FAILED
+    # ========================================================
 
     if unresolved:
 
         return GenerationResult(
 
-            status="PARTIAL",
+            status=
+                "PARTIAL",
 
             specification=
                 generation_specification,
@@ -2247,17 +2846,15 @@ def generate(
                 compatibility,
 
             errors=[
-                (
-                    f"{role}: {name}"
-                )
+                f"{role}: {name}"
                 for role, name
                 in unresolved
             ]
         )
 
-    # --------------------------------------------------------
-    # STEP 10 — STOP IF COMPATIBILITY FAILED
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 11 — COMPATIBILITY
+    # ========================================================
 
     if not compatibility[
         "compatible"
@@ -2265,7 +2862,8 @@ def generate(
 
         return GenerationResult(
 
-            status="REJECTED",
+            status=
+                "REJECTED",
 
             specification=
                 generation_specification,
@@ -2288,11 +2886,12 @@ def generate(
                 ]
         )
 
-    # --------------------------------------------------------
-    # STEP 11 — ASSEMBLE SOURCE
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 12 — ASSEMBLE SOURCE
+    # ========================================================
 
     print()
+
     print(
         "Assembling pipeline source..."
     )
@@ -2305,9 +2904,9 @@ def generate(
         )
     )
 
-    # --------------------------------------------------------
-    # STEP 12 — VALIDATE SOURCE
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 13 — VALIDATE SOURCE
+    # ========================================================
 
     source_validation = (
         validate_generated_source(
@@ -2321,7 +2920,8 @@ def generate(
 
         return GenerationResult(
 
-            status="REJECTED",
+            status=
+                "REJECTED",
 
             specification=
                 generation_specification,
@@ -2347,9 +2947,9 @@ def generate(
                 ]
         )
 
-    # --------------------------------------------------------
-    # STEP 13 — WRITE PIPELINE
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 14 — WRITE PIPELINE
+    # ========================================================
 
     generated_file = (
         write_generated_pipeline(
@@ -2358,37 +2958,57 @@ def generate(
         )
     )
 
-    # --------------------------------------------------------
-    # STEP 14 — SUCCESS
-    # --------------------------------------------------------
+    # ========================================================
+    # STEP 15 — SUCCESS
+    # ========================================================
 
     print()
-    print("=" * 70)
-    print("PIPELINE GENERATED")
-    print("=" * 70)
+
+    print(
+        "=" * 70
+    )
+
+    print(
+        "PIPELINE GENERATED"
+    )
+
+    print(
+        "=" * 70
+    )
+
     print()
+
     print(
         f"Generated file:"
-        f"\n  {generated_file}"
     )
+
+    print(
+        f"  {generated_file}"
+    )
+
     print()
+
     print(
-        f"Resources:"
-        f" {len(resources)}"
+        f"Resources: "
+        f"{len(resources)}"
     )
+
     print(
-        f"Dependencies:"
-        f" {len(dependencies)}"
+        f"Dependencies: "
+        f"{len(dependencies)}"
     )
+
     print(
-        f"Stages:"
-        f" {', '.join(stages)}"
+        f"Stages: "
+        f"{', '.join(stages)}"
     )
+
     print()
 
     return GenerationResult(
 
-        status="GENERATED",
+        status=
+            "GENERATED",
 
         specification=
             generation_specification,
@@ -2416,10 +3036,6 @@ def generate(
 # ============================================================
 # COMPATIBILITY ENTRY POINT
 # ============================================================
-#
-# This alias makes it easy for ingestion.py or another caller
-# to pass the generation object directly.
-# ============================================================
 
 def generate_pipeline(
     generation_specification: Any,
@@ -2435,12 +3051,6 @@ def generate_pipeline(
 # ============================================================
 # OBJECT RECEIVER
 # ============================================================
-#
-# Explicit handoff function.
-#
-# The object enters the generator here and then proceeds
-# through the complete generation lifecycle.
-# ============================================================
 
 def receive_generation_specification(
     generation_specification: Any
@@ -2452,14 +3062,7 @@ def receive_generation_specification(
 
 
 # ============================================================
-# TEST OBJECT
-# ============================================================
-#
-# This allows:
-#
-#     python generator.py
-#
-# to test the generator independently of ingestion.py.
+# DIRECT TEST
 # ============================================================
 
 if __name__ == "__main__":
@@ -2476,19 +3079,27 @@ if __name__ == "__main__":
             "EEG",
 
         "preprocessing": [
+
             "bandpass_filter",
+
             "notch_filter",
         ],
 
         "statistics": [
+
             "mean",
+
             "std",
+
             "variance",
+
             "rms",
         ],
 
         "signal_analysis": [
+
             "spectral_power",
+
             "dominant_frequency",
         ],
 
@@ -2507,12 +3118,24 @@ if __name__ == "__main__":
     )
 
     print()
-    print("=" * 70)
-    print("GENERATION RESULT")
-    print("=" * 70)
-    print()
+
     print(
-        f"Status: {result.status}"
+        "=" * 70
+    )
+
+    print(
+        "GENERATION RESULT"
+    )
+
+    print(
+        "=" * 70
+    )
+
+    print()
+
+    print(
+        f"Status: "
+        f"{result.status}"
     )
 
     if result.generated_file:
@@ -2525,7 +3148,10 @@ if __name__ == "__main__":
     if result.errors:
 
         print()
-        print("Errors:")
+
+        print(
+            "Errors:"
+        )
 
         for error in result.errors:
 
@@ -2534,3 +3160,4 @@ if __name__ == "__main__":
             )
 
     print()
+
