@@ -1,43 +1,34 @@
-
 # ============================================================
 # NEURAL ANALYSIS / PIPELINE COMPILATION SYSTEM
 # ============================================================
 #
 # analysis.py is the orchestration layer between:
 #
-#     ingestion.py
-#          |
-#          v
+#     Ingestion.py
+#           |
+#           v
 #     parameter object
-#          |
-#          v
+#           |
+#           v
 #     analysis.py
-#          |
-#          v
+#           |
+#           v
 #     generation specification
-#          |
-#          v
+#           |
+#           v
 #     generator.py
-#          |
-#          v
-#     Master-DOC raw-material resolution
 #
+# analysis.py does NOT implement scientific algorithms.
 #
-# IMPORTANT:
+# It:
 #
-# analysis.py does NOT resolve individual scientific resources.
+#     1. receives the parameter object
+#     2. normalizes it
+#     3. loads generator.py
+#     4. hands the generation specification to generator.py
 #
-# It does NOT search for:
-#
-#     band_pass_filter
-#     calculate_mean
-#     EEG_EEGLAB
-#     calculate_dominant_frequency
-#
-# That responsibility belongs to generator.py.
-#
-# analysis.py prepares the request and hands the resulting
-# generation specification to generator.py.
+# The actual scientific resources remain inside the
+# Master-DOC library.
 # ============================================================
 
 
@@ -45,25 +36,34 @@
 # IMPORTS
 # ============================================================
 
+from __future__ import annotations
+
 from pathlib import Path
-import importlib.util
 from importlib.machinery import SourceFileLoader
 from types import ModuleType
+from typing import Any
+import importlib.util
+import sys
 
 
 # ============================================================
-# GENERATOR PATH
-# ============================================================
-#
-# generator.py lives beside analysis.py.
-#
-# The path is resolved relative to this file so the system does
-# not depend on the user's current terminal directory.
+# PATHS
 # ============================================================
 
-GENERATOR_PATH = (
-    Path(__file__).resolve().parent /
+BASE_DIRECTORY = Path(__file__).resolve().parent
+
+GENERATOR_FILE = (
+    BASE_DIRECTORY /
     "generator.py"
+)
+
+
+# ============================================================
+# GENERATOR MODULE NAME
+# ============================================================
+
+GENERATOR_MODULE_NAME = (
+    "pipeline_generator_runtime"
 )
 
 
@@ -71,38 +71,48 @@ GENERATOR_PATH = (
 # LOAD GENERATOR MODULE
 # ============================================================
 #
-# analysis.py loads generator.py dynamically.
+# IMPORTANT:
 #
-# This keeps the architecture:
+# Python 3.14's dataclasses implementation expects the module
+# to exist inside sys.modules while the @dataclass decorator
+# executes.
 #
-#     analysis
-#         |
-#         +----> generator
+# Therefore:
 #
-# without duplicating generator logic here.
+#     module_from_spec()
+#
+# MUST be followed by:
+#
+#     sys.modules[module_name] = module
+#
+# BEFORE:
+#
+#     loader.exec_module(module)
+#
+# This fixes:
+#
+#     AttributeError:
+#     'NoneType' object has no attribute '__dict__'
+#
 # ============================================================
 
-def load_generator_module():
+def load_generator_module() -> ModuleType:
 
-    if not GENERATOR_PATH.exists():
+    if not GENERATOR_FILE.exists():
 
         raise FileNotFoundError(
             "generator.py was not found:\n"
-            f"{GENERATOR_PATH}"
+            f"{GENERATOR_FILE}"
         )
 
-    module_name = (
-        "pipeline_generator_runtime"
-    )
-
     loader = SourceFileLoader(
-        module_name,
-        str(GENERATOR_PATH)
+        GENERATOR_MODULE_NAME,
+        str(GENERATOR_FILE)
     )
 
     specification = (
         importlib.util.spec_from_loader(
-            module_name,
+            GENERATOR_MODULE_NAME,
             loader
         )
     )
@@ -120,64 +130,41 @@ def load_generator_module():
         )
     )
 
-    loader.exec_module(
-        module
-    )
+    # --------------------------------------------------------
+    # CRITICAL PYTHON 3.14 FIX
+    # --------------------------------------------------------
+
+    sys.modules[
+        GENERATOR_MODULE_NAME
+    ] = module
+
+    try:
+
+        loader.exec_module(
+            module
+        )
+
+    except Exception:
+
+        # Remove the partially loaded module so that a future
+        # attempt starts cleanly.
+        sys.modules.pop(
+            GENERATOR_MODULE_NAME,
+            None
+        )
+
+        raise
 
     return module
 
 
 # ============================================================
-# REQUIRE GENERATOR FUNCTION
-# ============================================================
-#
-# analysis.py requires only the public handoff function.
-#
-# generator.py owns everything that happens after the handoff.
-# ============================================================
-
-def require_generator_function(
-    generator_module,
-    function_name
-):
-
-    function = getattr(
-        generator_module,
-        function_name,
-        None
-    )
-
-    if not callable(function):
-
-        raise AttributeError(
-            "generator.py does not expose required "
-            f"function '{function_name}'."
-        )
-
-    return function
-
-
-# ============================================================
-# PARAMETER OBJECT → REQUEST DICTIONARY
-# ============================================================
-#
-# ingestion.py supplies the parameter object.
-#
-# The parameter object may be:
-#
-#     dictionary
-#     dataclass
-#     object with to_dict()
-#     Pydantic-style object with model_dump()
-#     ordinary object with public attributes
-#
-# analysis.py converts it into a dictionary without changing
-# the scientific meaning of the parameters.
+# CONVERT PARAMETER OBJECT TO DICTIONARY
 # ============================================================
 
 def parameter_object_to_request(
-    parameters
-):
+    parameters: Any
+) -> dict[str, Any]:
 
     if parameters is None:
 
@@ -206,9 +193,7 @@ def parameter_object_to_request(
         None
     )
 
-    if callable(
-        to_dict
-    ):
+    if callable(to_dict):
 
         result = to_dict()
 
@@ -236,9 +221,7 @@ def parameter_object_to_request(
         None
     )
 
-    if callable(
-        model_dump
-    ):
+    if callable(model_dump):
 
         result = model_dump()
 
@@ -257,18 +240,16 @@ def parameter_object_to_request(
         )
 
     # --------------------------------------------------------
-    # PUBLIC ATTRIBUTES
+    # GENERIC OBJECT
     # --------------------------------------------------------
 
-    attributes = {}
+    result = {}
 
     for name in dir(
         parameters
     ):
 
-        if name.startswith(
-            "_"
-        ):
+        if name.startswith("_"):
 
             continue
 
@@ -283,105 +264,44 @@ def parameter_object_to_request(
 
             continue
 
-        if callable(
-            value
-        ):
+        if callable(value):
 
             continue
 
-        attributes[
-            name
-        ] = value
+        result[name] = value
 
-    return attributes
+    return result
 
 
 # ============================================================
-# NORMALIZE REQUEST STRUCTURE
-# ============================================================
-#
-# This function does NOT translate scientific function names.
-#
-# It simply ensures the request has the expected top-level
-# structure before the generator receives it.
+# NORMALIZE REQUEST
 # ============================================================
 
-def normalize_request_structure(
-    request
-):
+def normalize_request(
+    request: dict[str, Any]
+) -> dict[str, Any]:
 
     normalized = dict(
         request
     )
 
-    # --------------------------------------------------------
-    # DEFAULT COLLECTIONS
-    # --------------------------------------------------------
-
-    collection_defaults = {
-
-        "preprocessing":
-            [],
-
-        "statistics":
-            [],
-
-        "signal_analysis":
-            [],
-
-        "features":
-            [],
-
-        "decoder":
-            None,
-
-        "target_type":
-            None,
-
-        "visualization":
-            False,
-
-        "output":
-            [],
-    }
-
-    for key, default in (
-        collection_defaults.items()
-    ):
-
-        if key not in normalized:
-
-            normalized[
-                key
-            ] = default
-
-    # --------------------------------------------------------
-    # ENSURE LIST-LIKE COMPONENTS ARE LISTS
-    # --------------------------------------------------------
-
     list_fields = (
-
         "preprocessing",
-
         "statistics",
-
-        "signal_analysis",
-
         "features",
-
-        "output",
+        "signal_analysis",
     )
 
-    for field in list_fields:
+    for field_name in list_fields:
 
         value = normalized.get(
-            field
+            field_name
         )
 
         if value is None:
 
             normalized[
-                field
+                field_name
             ] = []
 
         elif isinstance(
@@ -390,10 +310,14 @@ def normalize_request_structure(
         ):
 
             normalized[
-                field
-            ] = [
-                value
-            ]
+                field_name
+            ] = [value]
+
+        else:
+
+            normalized[
+                field_name
+            ] = list(value)
 
     return normalized
 
@@ -402,209 +326,16 @@ def normalize_request_structure(
 # BUILD GENERATION SPECIFICATION
 # ============================================================
 #
-# This is the key handoff object.
+# This is intentionally simple.
 #
-# It contains:
+# analysis.py creates the handoff object.
 #
-#     components
-#         |
-#         +-- neural_data
-#         +-- file_type
-#         +-- pipeline_type
-#         +-- preprocessing
-#         +-- statistics
-#         +-- signal_analysis
-#         +-- features
-#         +-- decoder
-#         +-- target_type
-#         +-- visualization
-#         +-- output
-#
-#
-# The generator receives this object.
-#
-# The generator then decides which Master-DOC resources
-# correspond to each component.
+# generator.py performs the actual resource acquisition.
 # ============================================================
 
 def build_generation_specification(
-    request
-):
-
-    return {
-
-        "specification_type":
-            "neural_pipeline_generation",
-
-        "version":
-            "1.0",
-
-        "components":
-            dict(request),
-
-        "source":
-            "analysis.py",
-
-        "handoff":
-            "analysis_to_generator",
-    }
-
-
-# ============================================================
-# VALIDATE BASIC GENERATION SPECIFICATION
-# ============================================================
-#
-# This is intentionally structural validation.
-#
-# It does NOT validate scientific compatibility.
-#
-# The generator / Master-DOC system owns resource resolution
-# and later compatibility validation.
-# ============================================================
-
-def validate_generation_specification(
-    specification
-):
-
-    errors = []
-
-    if not isinstance(
-        specification,
-        dict
-    ):
-
-        errors.append(
-            "Generation specification must "
-            "be a dictionary."
-        )
-
-        return {
-
-            "valid":
-                False,
-
-            "errors":
-                errors,
-        }
-
-    components = specification.get(
-        "components"
-    )
-
-    if not isinstance(
-        components,
-        dict
-    ):
-
-        errors.append(
-            "Generation specification is missing "
-            "the components dictionary."
-        )
-
-        return {
-
-            "valid":
-                False,
-
-            "errors":
-                errors,
-        }
-
-    # --------------------------------------------------------
-    # REQUIRED INPUT FIELDS
-    # --------------------------------------------------------
-
-    required_fields = (
-
-        "neural_data",
-
-        "file_type",
-
-        "pipeline_type",
-    )
-
-    for field in required_fields:
-
-        value = components.get(
-            field
-        )
-
-        if value is None:
-
-            errors.append(
-                f"Required parameter missing: "
-                f"{field}"
-            )
-
-        elif isinstance(
-            value,
-            str
-        ) and not value.strip():
-
-            errors.append(
-                f"Required parameter is empty: "
-                f"{field}"
-            )
-
-    return {
-
-        "valid":
-            len(errors) == 0,
-
-        "errors":
-            errors,
-    }
-
-
-# ============================================================
-# HAND OFF TO GENERATOR
-# ============================================================
-#
-# This is the actual boundary between analysis.py and
-# generator.py.
-#
-# analysis.py creates the object.
-#
-# generator.py receives the object.
-#
-# generator.py then accesses the Master-DOCs.
-# ============================================================
-
-def handoff_to_generator(
-    generation_specification,
-    generator_module
-):
-
-    receive_function = (
-        require_generator_function(
-            generator_module,
-            "receive_generation_specification"
-        )
-    )
-
-    return receive_function(
-        generation_specification
-    )
-
-
-# ============================================================
-# ANALYZE PARAMETER OBJECT
-# ============================================================
-#
-# Public function called by ingestion.py:
-#
-#     analyze(parameters)
-#
-# ============================================================
-
-def analyze(
-    parameters
-):
-
-    # ========================================================
-    # STEP 1
-    # RECEIVE PARAMETER OBJECT
-    # ========================================================
+    parameters: Any
+) -> dict[str, Any]:
 
     request = (
         parameter_object_to_request(
@@ -612,395 +343,124 @@ def analyze(
         )
     )
 
-
-    # ========================================================
-    # STEP 2
-    # NORMALIZE REQUEST STRUCTURE
-    # ========================================================
-
-    normalized_request = (
-        normalize_request_structure(
-            request
-        )
+    return normalize_request(
+        request
     )
 
 
-    # ========================================================
-    # STEP 3
-    # BUILD GENERATION SPECIFICATION
-    # ========================================================
+# ============================================================
+# ANALYZE
+# ============================================================
+#
+# Public entry point used by Ingestion.py.
+#
+# The object handoff occurs here:
+#
+#     parameters
+#          ↓
+#     generation_specification
+#          ↓
+#     generator.generate()
+#
+# ============================================================
+
+def analyze(
+    parameters: Any
+):
+
+    print()
+    print(
+        "=" * 70
+    )
+    print(
+        "NEURAL PIPELINE ANALYSIS"
+    )
+    print(
+        "=" * 70
+    )
+
+    # --------------------------------------------------------
+    # RECEIVE OBJECT
+    # --------------------------------------------------------
 
     generation_specification = (
         build_generation_specification(
-            normalized_request
+            parameters
         )
     )
 
-
-    # ========================================================
-    # STEP 4
-    # STRUCTURAL VALIDATION
-    # ========================================================
-
-    validation = (
-        validate_generation_specification(
-            generation_specification
-        )
+    print()
+    print(
+        "GENERATION SPECIFICATION CREATED"
     )
 
-    if not validation[
-        "valid"
-    ]:
+    print(
+        "Object handed from analysis.py to generator.py."
+    )
 
-        return {
+    print()
 
-            "status":
-                "INVALID",
+    for key, value in (
+        generation_specification.items()
+    ):
 
-            "parameters":
-                parameters,
+        print(
+            f"  {key}: {value}"
+        )
 
-            "request":
-                normalized_request,
-
-            "generation_specification":
-                generation_specification,
-
-            "validation":
-                validation,
-
-            "generator":
-                None,
-
-            "raw_material_resolution":
-                None,
-
-            "compilation_plan":
-                None,
-
-            "ready_for_compilation":
-                False,
-        }
-
-
-    # ========================================================
-    # STEP 5
+    # --------------------------------------------------------
     # LOAD GENERATOR
-    # ========================================================
+    # --------------------------------------------------------
 
     generator_module = (
         load_generator_module()
     )
 
+    # --------------------------------------------------------
+    # REQUIRE GENERATE FUNCTION
+    # --------------------------------------------------------
 
-    # ========================================================
-    # STEP 6
+    generate_function = getattr(
+        generator_module,
+        "generate",
+        None
+    )
+
+    if not callable(
+        generate_function
+    ):
+
+        raise AttributeError(
+            "generator.py does not expose "
+            "required function 'generate'."
+        )
+
+    # --------------------------------------------------------
     # HAND OFF OBJECT
-    # ========================================================
-    #
-    # This is where the generator actually receives the
-    # generation specification.
-    # ========================================================
-
-    generator_state = (
-        handoff_to_generator(
-            generation_specification,
-            generator_module
-        )
-    )
-
-
-    # ========================================================
-    # STEP 7
-    # RETURN COMPLETE ANALYSIS STATE
-    # ========================================================
-
-    return {
-
-        "status":
-            (
-                "READY"
-                if generator_state.get(
-                    "ready_for_compilation",
-                    False
-                )
-                else generator_state.get(
-                    "status",
-                    "PARTIAL"
-                )
-            ),
-
-        "parameters":
-            parameters,
-
-        "request":
-            normalized_request,
-
-        "generation_specification":
-            generation_specification,
-
-        "validation":
-            validation,
-
-        "generator":
-            generator_state,
-
-        "raw_material_resolution":
-            generator_state.get(
-                "raw_material_resolution"
-            ),
-
-        "compilation_plan":
-            generator_state.get(
-                "compilation_plan"
-            ),
-
-        "ready_for_compilation":
-            generator_state.get(
-                "ready_for_compilation",
-                False
-            ),
-    }
-
-
-# ============================================================
-# PRINT ANALYSIS REPORT
-# ============================================================
-
-def print_analysis_report(
-    analysis_state
-):
+    # --------------------------------------------------------
 
     print()
-
     print(
-        "=" * 70
+        "HANDING SPECIFICATION TO GENERATOR..."
     )
 
-    print(
-        "NEURAL ANALYSIS"
-    )
-
-    print(
-        "=" * 70
+    result = generate_function(
+        generation_specification
     )
 
     print()
-
     print(
-        "Analysis status:"
+        "GENERATOR RETURNED RESULT."
     )
 
-    print(
-        f"  "
-        f"{analysis_state.get('status')}"
-    )
-
-    print()
-
-    # --------------------------------------------------------
-    # GENERATION SPECIFICATION
-    # --------------------------------------------------------
-
-    specification = (
-        analysis_state.get(
-            "generation_specification"
-        )
-    )
-
-    print(
-        "Generation specification:"
-    )
-
-    if specification is None:
-
-        print(
-            "  NONE"
-        )
-
-    else:
-
-        print(
-            "  specification_type: "
-            f"{specification.get('specification_type')}"
-        )
-
-        print(
-            "  version: "
-            f"{specification.get('version')}"
-        )
-
-        print(
-            "  handoff: "
-            f"{specification.get('handoff')}"
-        )
-
-    print()
-
-    # --------------------------------------------------------
-    # GENERATOR
-    # --------------------------------------------------------
-
-    generator_state = (
-        analysis_state.get(
-            "generator"
-        )
-    )
-
-    if generator_state is None:
-
-        print(
-            "Generator:"
-        )
-
-        print(
-            "  NOT CALLED"
-        )
-
-        print()
-
-    else:
-
-        print(
-            "Generator:"
-        )
-
-        print(
-            "  Status: "
-            f"{generator_state.get('status')}"
-        )
-
-        print(
-            "  Ready for compilation: "
-            f"{generator_state.get('ready_for_compilation')}"
-        )
-
-        print()
-
-    # --------------------------------------------------------
-    # RAW MATERIAL RESOLUTION
-    # --------------------------------------------------------
-
-    resolution = (
-        analysis_state.get(
-            "raw_material_resolution"
-        )
-    )
-
-    if resolution is not None:
-
-        print(
-            "Raw-material resolution:"
-        )
-
-        print(
-            f"  Status: "
-            f"{resolution.get('status')}"
-        )
-
-        print()
-
-        unresolved = (
-            resolution.get(
-                "unresolved",
-                []
-            )
-        )
-
-        if unresolved:
-
-            print(
-                "  Unresolved:"
-            )
-
-            for item in unresolved:
-
-                print(
-                    f"    - "
-                    f"{item.get('role')}: "
-                    f"{item.get('requested')} "
-                    f"-> "
-                    f"{item.get('reason')}"
-                )
-
-        else:
-
-            print(
-                "  Unresolved:"
-            )
-
-            print(
-                "    NONE"
-            )
-
-        print()
-
-    # --------------------------------------------------------
-    # COMPILATION PLAN
-    # --------------------------------------------------------
-
-    compilation_plan = (
-        analysis_state.get(
-            "compilation_plan"
-        )
-    )
-
-    print(
-        "Compilation plan:"
-    )
-
-    if not compilation_plan:
-
-        print(
-            "  NONE"
-        )
-
-    else:
-
-        for number, item in enumerate(
-            compilation_plan,
-            start=1
-        ):
-
-            print(
-                f"  {number}. "
-                f"{item.get('stage')} -> "
-                f"{item.get('resolved')}"
-            )
-
-    print()
-
-    print(
-        "=" * 70
-    )
+    return result
 
 
 # ============================================================
 # DIRECT TEST
 # ============================================================
-#
-# Running:
-#
-#     python analysis.py
-#
-# tests:
-#
-#     parameter object
-#          ↓
-#     request normalization
-#          ↓
-#     generation specification
-#          ↓
-#     generator handoff
-#          ↓
-#     Master-DOC resource resolution
-# ============================================================
 
 if __name__ == "__main__":
-
-    # --------------------------------------------------------
-    # TEST PARAMETER OBJECT
-    # --------------------------------------------------------
 
     test_parameters = {
 
@@ -1008,62 +468,59 @@ if __name__ == "__main__":
             "EEG",
 
         "file_type":
-            ".set",
+            ".edf",
 
         "pipeline_type":
             "EEG",
 
-        "preprocessing": [
+        "preprocessing":
+            [
+                "bandpass_filter",
+                "notch_filter",
+            ],
 
-            "bandpass_filter",
+        "statistics":
+            [
+                "mean",
+                "std",
+                "variance",
+                "rms",
+            ],
 
-            "notch_filter",
-        ],
-
-        "statistics": [
-
-            "mean",
-
-            "std",
-
-            "variance",
-
-            "rms",
-
-            "spectral_power",
-
-            "dominant_frequency",
-        ],
-
-        "features":
-            [],
+        "signal_analysis":
+            [
+                "spectral_power",
+                "dominant_frequency",
+            ],
 
         "decoder":
-            None,
-
-        "target_type":
             None,
 
         "visualization":
             False,
 
+        "output":
+            None,
     }
 
-
-    # --------------------------------------------------------
-    # RUN ANALYSIS
-    # --------------------------------------------------------
-
-    analysis_state = analyze(
+    result = analyze(
         test_parameters
     )
 
+    print()
+    print(
+        "=" * 70
+    )
 
-    # --------------------------------------------------------
-    # DISPLAY RESULT
-    # --------------------------------------------------------
+    print(
+        "ANALYSIS RESULT"
+    )
 
-    print_analysis_report(
-        analysis_state
+    print(
+        "=" * 70
+    )
+
+    print(
+        result
     )
 
